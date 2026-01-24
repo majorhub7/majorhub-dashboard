@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { GoogleGenerativeAI } from "npm:@google/generative-ai@latest"
 
@@ -16,14 +15,13 @@ serve(async (req) => {
         const { action, payload } = await req.json()
         const apiKey = Deno.env.get('GEMINI_API_KEY')
 
-        if (!apiKey) {
+        // Robust API key validation
+        if (!apiKey || apiKey.length < 30) {
             return new Response(
-                JSON.stringify({ success: false, error: 'API Key missing' }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+                JSON.stringify({ success: false, error: 'Invalid or missing API Key' }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
             )
         }
-
-        console.log(`Action: ${action} | Key: ${apiKey.substring(0, 10)}...`);
 
         const genAI = new GoogleGenerativeAI(apiKey)
 
@@ -47,7 +45,6 @@ serve(async (req) => {
 
             for (const modelName of modelsToTry) {
                 try {
-                    console.log(`Trying: ${modelName}`);
                     const model = genAI.getGenerativeModel({
                         model: modelName,
                         systemInstruction: "You are the Major Hub Creative Assistant. Respond in Portuguese (PT-BR)."
@@ -61,14 +58,12 @@ serve(async (req) => {
                     });
 
                     const result = await chat.sendMessage(message);
-                    console.log(`Success: ${modelName}`);
 
                     return new Response(
                         JSON.stringify({ success: true, text: result.response.text(), modelUsed: modelName }),
                         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
                     )
                 } catch (err: any) {
-                    console.error(`Failed ${modelName}:`, err.message);
                     lastError = err;
 
                     const isRetryable = err.status === 429 || err.status === 404 ||
@@ -89,10 +84,9 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: false, error: 'Invalid action' }), { headers: corsHeaders, status: 200 });
 
     } catch (error: any) {
-        console.error('Global Error:', error);
         return new Response(
-            JSON.stringify({ success: false, error: error.message }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+            JSON.stringify({ success: false, error: error.message || 'Internal server error' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
         )
     }
 })

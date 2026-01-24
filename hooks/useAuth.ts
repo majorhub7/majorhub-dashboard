@@ -25,8 +25,6 @@ export function useAuth() {
     const fetchProfile = useCallback(async (userId: string) => {
         if (!userId || isFetchingProfile.current === userId) return;
 
-        console.log('Fetching profile for:', userId);
-
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
             controller.abort();
@@ -101,11 +99,8 @@ export function useAuth() {
 
     const updateProfile = async (updates: Partial<UserProfile>) => {
         if (!authState.user) {
-            console.warn('updateProfile called without authenticated user');
             return { error: new Error('User not authenticated'), data: null };
         }
-
-        console.log('Updating profile with:', updates);
 
         const { data, error } = await (supabase
             .from('users') as any)
@@ -115,12 +110,10 @@ export function useAuth() {
             .single();
 
         if (error) {
-            console.error('Error updating profile:', error);
             return { error, data: null };
         }
 
         if (data) {
-            console.log('Profile updated successfully:', data);
             setAuthState(prev => ({ ...prev, profile: data as UserProfile }));
         }
 

@@ -3,6 +3,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ProjectCard from './components/ProjectCard';
 import LoginView from './components/LoginView';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import { geminiService } from './services/gemini';
 
@@ -262,7 +263,6 @@ const App: React.FC = () => {
       ]);
 
       // Feedback de sucesso
-      console.log('Cliente criado com sucesso');
 
     } catch (err) {
       console.error('Erro ao criar cliente:', err);
@@ -394,278 +394,280 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background-light dark:bg-slate-950">
-      <Sidebar
-        user={currentUser}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-      />
+    <ErrorBoundary>
+      <div className="flex h-screen overflow-hidden bg-background-light dark:bg-slate-950">
+        <Sidebar
+          user={currentUser}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        />
 
-      <main className={`flex-1 flex flex-col overflow-y-auto custom-scrollbar transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'lg:ml-0' : 'lg:ml-72'}`}>
-        <header className="pt-4 md:pt-10 pb-4 md:pb-6 flex items-center justify-between px-4 md:px-12 sticky top-0 z-30 bg-gradient-to-b from-background-light via-background-light/95 to-transparent dark:from-slate-950 dark:via-slate-950/95 dark:to-transparent backdrop-blur-md">
-          <div className="flex items-center gap-3 md:gap-6 flex-1 min-w-0">
-            {isSidebarCollapsed && (
+        <main className={`flex-1 flex flex-col overflow-y-auto custom-scrollbar transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'lg:ml-0' : 'lg:ml-72'}`}>
+          <header className="pt-4 md:pt-10 pb-4 md:pb-6 flex items-center justify-between px-4 md:px-12 sticky top-0 z-30 bg-gradient-to-b from-background-light via-background-light/95 to-transparent dark:from-slate-950 dark:via-slate-950/95 dark:to-transparent backdrop-blur-md">
+            <div className="flex items-center gap-3 md:gap-6 flex-1 min-w-0">
+              {isSidebarCollapsed && (
+                <button
+                  onClick={() => setIsSidebarCollapsed(false)}
+                  className="hidden lg:flex p-2.5 text-primary hover:bg-white dark:hover:bg-slate-900 rounded-xl transition-all shadow-sm border border-slate-100 dark:border-slate-800 shrink-0"
+                >
+                  <span className="material-symbols-outlined !text-[20px]">side_navigation</span>
+                </button>
+              )}
+
               <button
-                onClick={() => setIsSidebarCollapsed(false)}
-                className="hidden lg:flex p-2.5 text-primary hover:bg-white dark:hover:bg-slate-900 rounded-xl transition-all shadow-sm border border-slate-100 dark:border-slate-800 shrink-0"
+                onClick={() => setIsSidebarOpen(true)}
+                className="lg:hidden p-2.5 text-slate-500 hover:bg-white dark:hover:bg-slate-900 rounded-xl transition-all shadow-sm border border-slate-100 dark:border-slate-800 shrink-0"
               >
-                <span className="material-symbols-outlined !text-[20px]">side_navigation</span>
+                <span className="material-symbols-outlined !text-[20px]">menu</span>
               </button>
-            )}
 
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2.5 text-slate-500 hover:bg-white dark:hover:bg-slate-900 rounded-xl transition-all shadow-sm border border-slate-100 dark:border-slate-800 shrink-0"
-            >
-              <span className="material-symbols-outlined !text-[20px]">menu</span>
-            </button>
-
-            {/* Contexto do Cliente Atual */}
-            {selectedClient && (
-              <div className="flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 px-4 py-2 rounded-2xl border border-slate-100 dark:border-slate-800 animate-fade-in">
-                <img src={selectedClient.logoUrl} className="size-6 object-contain filter grayscale" alt="" />
-                <span className="text-xs font-black text-slate-800 dark:text-slate-200 truncate max-w-[120px]">{selectedClient.name}</span>
-                {currentUser.accessLevel === 'MANAGER' && (
-                  <button onClick={() => setSelectedClient(null)} className="text-[10px] font-bold text-primary hover:underline">Trocar</button>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 md:gap-6 ml-3">
-            {currentUser.accessLevel === 'MANAGER' && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsAICreateModalOpen(true)}
-                  className="bg-slate-900 dark:bg-slate-800 text-white p-2.5 md:py-3.5 md:px-6 rounded-full md:rounded-[1.25rem] hover:bg-slate-800 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 group shrink-0 border border-slate-700/50"
-                >
-                  <span className="material-symbols-outlined !text-[20px] md:!text-[22px] group-hover:rotate-12 transition-transform">psychology</span>
-                  <span className="hidden md:inline font-bold text-sm">Criar com IA</span>
-                </button>
-
-                <button
-                  onClick={() => setIsNewProjectModalOpen(true)}
-                  className="bg-primary text-white p-2.5 md:py-3.5 md:px-8 rounded-full md:rounded-[1.25rem] hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-95 group shrink-0"
-                >
-                  <span className="material-symbols-outlined !text-[20px] md:!text-[22px] group-hover:rotate-90 transition-transform">add</span>
-                  <span className="hidden md:inline font-bold text-sm">Novo Projeto</span>
-                </button>
-              </div>
-            )}
-
-            {/* Botão de Logout Desktop */}
-            <button
-              onClick={handleLogout}
-              className="hidden md:flex items-center gap-2 px-5 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all shadow-sm active:scale-95 group"
-            >
-              <span className="material-symbols-outlined !text-[20px] group-hover:scale-110 transition-transform">logout</span>
-              <span className="text-[10px] font-black uppercase tracking-widest">Sair</span>
-            </button>
-
-            <div className="relative shrink-0">
-              <button className="text-slate-500 hover:text-primary transition-colors p-2.5 bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-800 rounded-full md:rounded-2xl">
-                <span className="material-symbols-outlined !text-[20px] md:!text-[22px]">notifications</span>
-              </button>
-              <span className="absolute top-2.5 right-2.5 size-2 bg-rose-500 rounded-full border-2 border-background-light dark:border-slate-950"></span>
-            </div>
-
-            <button onClick={handleLogout} className="lg:hidden size-11 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-slate-400">
-              <span className="material-symbols-outlined">logout</span>
-            </button>
-          </div>
-        </header>
-
-        <div className={`w-full mx-auto ${activeTab === 'mensagens' ? 'h-[calc(100vh-100px)] md:h-[calc(100vh-140px)] px-2 md:px-6' : 'px-4 md:px-12 max-w-[1600px] py-6 md:py-10'}`}>
-          <React.Suspense fallback={<LoadingFallback />}>
-            {activeTab === 'dashboard' && (
-              <>
-                <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
-                  <div>
-                    <h2 className="text-2xl md:text-5xl font-extrabold tracking-tight mb-2 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-slate-700 to-slate-400 dark:from-white dark:to-slate-500">
-                      Dashboard {selectedClient?.name}
-                    </h2>
-                    <p className="text-slate-400 text-xs md:text-lg font-medium">Seu fluxo criativo está pronto para hoje.</p>
-                  </div>
-                </div>
-
-                <div className="mb-10 md:mb-20">
-                  <h3 className="text-[11px] md:text-xl font-bold flex items-center gap-2 text-slate-500 md:text-slate-900 dark:md:text-white uppercase mb-8">
-                    <span className="material-symbols-outlined text-primary">calendar_month</span>
-                    Próximas Entregas
-                  </h3>
-
-                  <div ref={carouselRef} className="flex overflow-x-auto gap-6 pb-10 no-scrollbar scroll-smooth touch-pan-x">
-                    {projectsLoading ? (
-                      // Loading skeleton simples
-                      Array.from({ length: 3 }).map((_, i) => (
-                        <div
-                          key={i}
-                          className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border-2 border-slate-100 dark:border-slate-800 flex items-center gap-6 shrink-0 w-[320px] animate-pulse"
-                        >
-                          <div className="size-3 rounded-full shrink-0 bg-slate-200 dark:bg-slate-700" />
-                          <div className="flex-1 space-y-3">
-                            <div className="h-2 w-16 bg-slate-200 dark:bg-slate-700 rounded" />
-                            <div className="h-4 w-full bg-slate-200 dark:bg-slate-700 rounded" />
-                          </div>
-                        </div>
-                      ))
-                    ) : dynamicDeliveries.length > 0 ? (
-                      dynamicDeliveries.map((delivery) => (
-                        <div
-                          key={delivery.id}
-                          onClick={() => {
-                            const project = projects.find(p => p.id === delivery.projectId);
-                            if (project) setSelectedProjectId(project.id);
-                          }}
-                          className={`bg-white dark:bg-slate-900 p-8 rounded-[2rem] border-2 flex items-center gap-6 group hover:shadow-xl transition-all duration-500 cursor-pointer shrink-0 w-[320px] ${delivery.isLate ? 'border-rose-500/20' : 'border-slate-100 dark:border-slate-800'}`}
-                        >
-                          <div className={`size-3 rounded-full shrink-0 ${delivery.isLate ? 'bg-rose-500 animate-pulse' : 'bg-primary'}`} />
-                          <div className="flex-1 overflow-hidden">
-                            <div className="flex items-center justify-between mb-2">
-                              <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${delivery.isLate ? 'text-rose-500' : 'text-slate-400'}`}>
-                                {delivery.date}
-                              </p>
-                            </div>
-                            <p className="text-base font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-primary transition-colors">{delivery.title}</p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="py-10 text-slate-400 italic text-sm">Nenhuma entrega próxima.</div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mb-10 flex items-center justify-between">
-                  <h3 className="text-lg md:text-3xl font-bold flex items-center gap-3">
-                    <span className="size-2 rounded-full bg-primary" />
-                    Projetos em Foco
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
-                  {projectsLoading ? (
-                    Array.from({ length: 3 }).map((_, i) => (
-                      <div key={i} className="h-[400px] bg-slate-100 dark:bg-slate-900 rounded-[2rem] animate-pulse border border-slate-200 dark:border-slate-800" />
-                    ))
-                  ) : filteredProjects.map((project) => (
-                    <ProjectCard
-                      key={project.id}
-                      project={project}
-                      onClick={() => setSelectedProjectId(project.id)}
-                    />
-                  ))}
-                  {!projectsLoading && filteredProjects.length === 0 && (
-                    <div className="col-span-full py-20 bg-white/50 dark:bg-slate-900/50 rounded-[3rem] border-2 border-dashed border-slate-100 dark:border-slate-800 flex flex-col items-center justify-center text-slate-400 gap-4">
-                      <span className="material-symbols-outlined !text-[48px] opacity-20">folder_open</span>
-                      <p className="text-sm font-bold uppercase tracking-widest">Nenhum projeto encontrado para este cliente</p>
-                      {currentUser.accessLevel === 'MANAGER' && (
-                        <button onClick={() => setIsNewProjectModalOpen(true)} className="text-primary font-bold hover:underline">Criar novo projeto</button>
-                      )}
-                    </div>
+              {/* Contexto do Cliente Atual */}
+              {selectedClient && (
+                <div className="flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 px-4 py-2 rounded-2xl border border-slate-100 dark:border-slate-800 animate-fade-in">
+                  <img src={selectedClient.logoUrl} className="size-6 object-contain filter grayscale" alt="" />
+                  <span className="text-xs font-black text-slate-800 dark:text-slate-200 truncate max-w-[120px]">{selectedClient.name}</span>
+                  {currentUser.accessLevel === 'MANAGER' && (
+                    <button onClick={() => setSelectedClient(null)} className="text-[10px] font-bold text-primary hover:underline">Trocar</button>
                   )}
                 </div>
-              </>
-            )}
+              )}
+            </div>
 
-            {activeTab === 'projetos' && (
-              <MeusProjetosView
-                projects={filteredProjects}
-                upcomingDeliveries={dynamicDeliveries}
-                onUpdateProject={updateProject}
-                onSelectProject={(p) => setSelectedProjectId(p.id)}
-                isLoading={projectsLoading}
-              />
-            )}
+            <div className="flex items-center gap-2 md:gap-6 ml-3">
+              {currentUser.accessLevel === 'MANAGER' && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsAICreateModalOpen(true)}
+                    className="bg-slate-900 dark:bg-slate-800 text-white p-2.5 md:py-3.5 md:px-6 rounded-full md:rounded-[1.25rem] hover:bg-slate-800 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 group shrink-0 border border-slate-700/50"
+                  >
+                    <span className="material-symbols-outlined !text-[20px] md:!text-[22px] group-hover:rotate-12 transition-transform">psychology</span>
+                    <span className="hidden md:inline font-bold text-sm">Criar com IA</span>
+                  </button>
 
-            {activeTab === 'biblioteca' && <BibliotecaView projects={filteredProjects} />}
-            {activeTab === 'perfil' && currentUser && (
-              <PerfilView
-                user={currentUser}
-                onUpdateUser={async (updatedUser) => {
-                  // Map frontend camelCase to backend snake_case
-                  const dbUpdates: Record<string, any> = {};
+                  <button
+                    onClick={() => setIsNewProjectModalOpen(true)}
+                    className="bg-primary text-white p-2.5 md:py-3.5 md:px-8 rounded-full md:rounded-[1.25rem] hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-95 group shrink-0"
+                  >
+                    <span className="material-symbols-outlined !text-[20px] md:!text-[22px] group-hover:rotate-90 transition-transform">add</span>
+                    <span className="hidden md:inline font-bold text-sm">Novo Projeto</span>
+                  </button>
+                </div>
+              )}
 
-                  // Mapear todos os campos corretamente
-                  if (updatedUser.name !== undefined) dbUpdates.name = updatedUser.name;
-                  if (updatedUser.role !== undefined) dbUpdates.role = updatedUser.role;
-                  if (updatedUser.bio !== undefined) dbUpdates.bio = updatedUser.bio;
-                  if (updatedUser.avatarUrl !== undefined) dbUpdates.avatar_url = updatedUser.avatarUrl;
-                  if (updatedUser.coverUrl !== undefined) dbUpdates.cover_url = updatedUser.coverUrl;
-                  if (updatedUser.skills !== undefined) dbUpdates.skills = updatedUser.skills;
-                  if (updatedUser.location !== undefined) dbUpdates.location = updatedUser.location;
-                  if (updatedUser.website !== undefined) dbUpdates.website = updatedUser.website;
+              {/* Botão de Logout Desktop */}
+              <button
+                onClick={handleLogout}
+                className="hidden md:flex items-center gap-2 px-5 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all shadow-sm active:scale-95 group"
+              >
+                <span className="material-symbols-outlined !text-[20px] group-hover:scale-110 transition-transform">logout</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">Sair</span>
+              </button>
 
-                  return await updateProfile(dbUpdates);
-                }}
-              />
-            )}
-            {activeTab === 'mensagens' && currentUser && <MensagensView currentUser={currentUser} />}
-            {activeTab === 'configurações' && currentUser && (
-              <ConfiguracoesView
-                currentUser={currentUser}
-                projects={filteredProjects}
-                onDeleteProject={async (id) => {
-                  await deleteProject(id);
-                }}
-                selectedClient={selectedClient}
-                onDeleteClient={async (id) => {
-                  await deleteClient(id);
-                  setSelectedClient(null);
-                }}
-                members={members}
-                onDeleteMember={deleteMember}
-              />
-            )}
-          </React.Suspense>
-        </div>
-      </main>
+              <div className="relative shrink-0">
+                <button className="text-slate-500 hover:text-primary transition-colors p-2.5 bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-800 rounded-full md:rounded-2xl">
+                  <span className="material-symbols-outlined !text-[20px] md:!text-[22px]">notifications</span>
+                </button>
+                <span className="absolute top-2.5 right-2.5 size-2 bg-rose-500 rounded-full border-2 border-background-light dark:border-slate-950"></span>
+              </div>
 
-      <React.Suspense fallback={null}>
-        {selectedProject && (
-          <ProjectDetailsModal
-            project={selectedProject}
-            onClose={() => setSelectedProjectId(null)}
-            onUpdate={updateProject}
-            onDelete={deleteProject}
-            currentUser={currentUser}
-            onAddGoal={addGoal}
-            onUpdateGoal={updateGoal}
-            onDeleteGoal={deleteGoal}
-            onAddActivity={addActivity}
-          />
-        )}
+              <button onClick={handleLogout} className="lg:hidden size-11 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-slate-400">
+                <span className="material-symbols-outlined">logout</span>
+              </button>
+            </div>
+          </header>
 
-        {isNewProjectModalOpen && selectedClient && (
-          <NewProjectModal
-            onClose={() => setIsNewProjectModalOpen(false)}
-            onCreate={handleCreateProject}
-            currentUser={currentUser}
-            currentClient={selectedClient}
-          />
-        )}
+          <div className={`w-full mx-auto ${activeTab === 'mensagens' ? 'h-[calc(100vh-100px)] md:h-[calc(100vh-140px)] px-2 md:px-6' : 'px-4 md:px-12 max-w-[1600px] py-6 md:py-10'}`}>
+            <React.Suspense fallback={<LoadingFallback />}>
+              {activeTab === 'dashboard' && (
+                <>
+                  <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div>
+                      <h2 className="text-2xl md:text-5xl font-extrabold tracking-tight mb-2 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-slate-700 to-slate-400 dark:from-white dark:to-slate-500">
+                        Dashboard {selectedClient?.name}
+                      </h2>
+                      <p className="text-slate-400 text-xs md:text-lg font-medium">Seu fluxo criativo está pronto para hoje.</p>
+                    </div>
+                  </div>
 
-        {isAICreateModalOpen && selectedClient && (
-          <AICreateModal
-            onClose={() => setIsAICreateModalOpen(false)}
-            currentUser={currentUser}
-            currentClient={selectedClient}
-            onCreateProject={handleAICreateProject}
-            onViewProject={(id) => {
-              setSelectedProjectId(id);
-              setIsAICreateModalOpen(false);
-              setActiveTab('projetos');
-            }}
-            existingProjects={mappedProjects}
-          />
-        )}
-      </React.Suspense>
+                  <div className="mb-10 md:mb-20">
+                    <h3 className="text-[11px] md:text-xl font-bold flex items-center gap-2 text-slate-500 md:text-slate-900 dark:md:text-white uppercase mb-8">
+                      <span className="material-symbols-outlined text-primary">calendar_month</span>
+                      Próximas Entregas
+                    </h3>
+
+                    <div ref={carouselRef} className="flex overflow-x-auto gap-6 pb-10 no-scrollbar scroll-smooth touch-pan-x">
+                      {projectsLoading ? (
+                        // Loading skeleton simples
+                        Array.from({ length: 3 }).map((_, i) => (
+                          <div
+                            key={i}
+                            className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border-2 border-slate-100 dark:border-slate-800 flex items-center gap-6 shrink-0 w-[320px] animate-pulse"
+                          >
+                            <div className="size-3 rounded-full shrink-0 bg-slate-200 dark:bg-slate-700" />
+                            <div className="flex-1 space-y-3">
+                              <div className="h-2 w-16 bg-slate-200 dark:bg-slate-700 rounded" />
+                              <div className="h-4 w-full bg-slate-200 dark:bg-slate-700 rounded" />
+                            </div>
+                          </div>
+                        ))
+                      ) : dynamicDeliveries.length > 0 ? (
+                        dynamicDeliveries.map((delivery) => (
+                          <div
+                            key={delivery.id}
+                            onClick={() => {
+                              const project = projects.find(p => p.id === delivery.projectId);
+                              if (project) setSelectedProjectId(project.id);
+                            }}
+                            className={`bg-white dark:bg-slate-900 p-8 rounded-[2rem] border-2 flex items-center gap-6 group hover:shadow-xl transition-all duration-500 cursor-pointer shrink-0 w-[320px] ${delivery.isLate ? 'border-rose-500/20' : 'border-slate-100 dark:border-slate-800'}`}
+                          >
+                            <div className={`size-3 rounded-full shrink-0 ${delivery.isLate ? 'bg-rose-500 animate-pulse' : 'bg-primary'}`} />
+                            <div className="flex-1 overflow-hidden">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${delivery.isLate ? 'text-rose-500' : 'text-slate-400'}`}>
+                                  {delivery.date}
+                                </p>
+                              </div>
+                              <p className="text-base font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-primary transition-colors">{delivery.title}</p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="py-10 text-slate-400 italic text-sm">Nenhuma entrega próxima.</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mb-10 flex items-center justify-between">
+                    <h3 className="text-lg md:text-3xl font-bold flex items-center gap-3">
+                      <span className="size-2 rounded-full bg-primary" />
+                      Projetos em Foco
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+                    {projectsLoading ? (
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="h-[400px] bg-slate-100 dark:bg-slate-900 rounded-[2rem] animate-pulse border border-slate-200 dark:border-slate-800" />
+                      ))
+                    ) : filteredProjects.map((project) => (
+                      <ProjectCard
+                        key={project.id}
+                        project={project}
+                        onClick={() => setSelectedProjectId(project.id)}
+                      />
+                    ))}
+                    {!projectsLoading && filteredProjects.length === 0 && (
+                      <div className="col-span-full py-20 bg-white/50 dark:bg-slate-900/50 rounded-[3rem] border-2 border-dashed border-slate-100 dark:border-slate-800 flex flex-col items-center justify-center text-slate-400 gap-4">
+                        <span className="material-symbols-outlined !text-[48px] opacity-20">folder_open</span>
+                        <p className="text-sm font-bold uppercase tracking-widest">Nenhum projeto encontrado para este cliente</p>
+                        {currentUser.accessLevel === 'MANAGER' && (
+                          <button onClick={() => setIsNewProjectModalOpen(true)} className="text-primary font-bold hover:underline">Criar novo projeto</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {activeTab === 'projetos' && (
+                <MeusProjetosView
+                  projects={filteredProjects}
+                  upcomingDeliveries={dynamicDeliveries}
+                  onUpdateProject={updateProject}
+                  onSelectProject={(p) => setSelectedProjectId(p.id)}
+                  isLoading={projectsLoading}
+                />
+              )}
+
+              {activeTab === 'biblioteca' && <BibliotecaView projects={filteredProjects} />}
+              {activeTab === 'perfil' && currentUser && (
+                <PerfilView
+                  user={currentUser}
+                  onUpdateUser={async (updatedUser) => {
+                    // Map frontend camelCase to backend snake_case
+                    const dbUpdates: Record<string, any> = {};
+
+                    // Mapear todos os campos corretamente
+                    if (updatedUser.name !== undefined) dbUpdates.name = updatedUser.name;
+                    if (updatedUser.role !== undefined) dbUpdates.role = updatedUser.role;
+                    if (updatedUser.bio !== undefined) dbUpdates.bio = updatedUser.bio;
+                    if (updatedUser.avatarUrl !== undefined) dbUpdates.avatar_url = updatedUser.avatarUrl;
+                    if (updatedUser.coverUrl !== undefined) dbUpdates.cover_url = updatedUser.coverUrl;
+                    if (updatedUser.skills !== undefined) dbUpdates.skills = updatedUser.skills;
+                    if (updatedUser.location !== undefined) dbUpdates.location = updatedUser.location;
+                    if (updatedUser.website !== undefined) dbUpdates.website = updatedUser.website;
+
+                    return await updateProfile(dbUpdates);
+                  }}
+                />
+              )}
+              {activeTab === 'mensagens' && currentUser && <MensagensView currentUser={currentUser} />}
+              {activeTab === 'configurações' && currentUser && (
+                <ConfiguracoesView
+                  currentUser={currentUser}
+                  projects={filteredProjects}
+                  onDeleteProject={async (id) => {
+                    await deleteProject(id);
+                  }}
+                  selectedClient={selectedClient}
+                  onDeleteClient={async (id) => {
+                    await deleteClient(id);
+                    setSelectedClient(null);
+                  }}
+                  members={members}
+                  onDeleteMember={deleteMember}
+                />
+              )}
+            </React.Suspense>
+          </div>
+        </main>
+
+        <React.Suspense fallback={null}>
+          {selectedProject && (
+            <ProjectDetailsModal
+              project={selectedProject}
+              onClose={() => setSelectedProjectId(null)}
+              onUpdate={updateProject}
+              onDelete={deleteProject}
+              currentUser={currentUser}
+              onAddGoal={addGoal}
+              onUpdateGoal={updateGoal}
+              onDeleteGoal={deleteGoal}
+              onAddActivity={addActivity}
+            />
+          )}
+
+          {isNewProjectModalOpen && selectedClient && (
+            <NewProjectModal
+              onClose={() => setIsNewProjectModalOpen(false)}
+              onCreate={handleCreateProject}
+              currentUser={currentUser}
+              currentClient={selectedClient}
+            />
+          )}
+
+          {isAICreateModalOpen && selectedClient && (
+            <AICreateModal
+              onClose={() => setIsAICreateModalOpen(false)}
+              currentUser={currentUser}
+              currentClient={selectedClient}
+              onCreateProject={handleAICreateProject}
+              onViewProject={(id) => {
+                setSelectedProjectId(id);
+                setIsAICreateModalOpen(false);
+                setActiveTab('projetos');
+              }}
+              existingProjects={mappedProjects}
+            />
+          )}
+        </React.Suspense>
 
 
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 

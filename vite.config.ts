@@ -14,9 +14,14 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
     ],
-    define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+    build: {
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: true, // Remove console.* calls in production
+          drop_debugger: true,
+        },
+      },
     },
     resolve: {
       alias: {

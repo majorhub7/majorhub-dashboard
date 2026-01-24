@@ -10,13 +10,11 @@ export class GeminiService {
       });
 
       if (error) {
-        console.error('Error in gemini-proxy invocation:', error);
         return null;
       }
 
       return data?.data || null;
     } catch (error) {
-      console.error('Error generating image via proxy:', error);
       return null;
     }
   }
@@ -28,13 +26,11 @@ export class GeminiService {
       });
 
       if (error) {
-        console.error('Error in gemini-proxy invocation:', error);
         return "Continue criando coisas incríveis!";
       }
 
       return data?.text || "Continue criando coisas incríveis!";
     } catch (error) {
-      console.error('Error searching insights via proxy:', error);
       return "Sua criatividade não tem limites.";
     }
   }
@@ -46,13 +42,11 @@ export class GeminiService {
       });
 
       if (error) {
-        console.error('Error in gemini-proxy chat:', error);
         return null;
       }
 
       return data?.text || null;
     } catch (error) {
-      console.error('Error chatting via proxy:', error);
       return null;
     }
   }
@@ -64,13 +58,11 @@ export class GeminiService {
       });
 
       if (error) {
-        console.error('Error in gemini-proxy analyzeBriefing:', error);
         return null;
       }
 
       return data?.text || null;
     } catch (error) {
-      console.error('Error analyzing briefing via proxy:', error);
       return null;
     }
   }
@@ -79,7 +71,6 @@ export class GeminiService {
     try {
       const contextStr = contextProjects.map(p => `Project: ${p.title} - Description: ${p.description}`).join('\n');
 
-      console.log('Invoking gemini-proxy with action: generateProjectStructure');
       const { data, error } = await supabase.functions.invoke('gemini-proxy', {
         body: {
           action: 'generateProjectStructure',
@@ -92,19 +83,15 @@ export class GeminiService {
       });
 
       if (error) {
-        console.error('HTTP Error in gemini-proxy:', error);
         return null;
       }
 
       if (!data.success) {
-        console.error('Function returned error:', data.error);
-        console.error('Error stack:', data.stack);
         return null;
       }
 
       return data?.data || null;
     } catch (error) {
-      console.error('Error generating project structure via proxy:', error);
       return null;
     }
   }
