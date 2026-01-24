@@ -1,0 +1,7 @@
+{
+  "name": "Major Hub",
+  "description": "Uma plataforma de gestão para criativos com mural de inspiração alimentado por IA, acompanhamento de projetos e fluxo de trabalho colaborativo.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

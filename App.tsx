@@ -1,0 +1,672 @@
+
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import Sidebar from './components/Sidebar';
+import ProjectCard from './components/ProjectCard';
+import LoginView from './components/LoginView';
+
+import { geminiService } from './services/gemini';
+
+// Lazy loaded components
+const ProjectDetailsModal = React.lazy(() => import('./components/ProjectDetailsModal'));
+const NewProjectModal = React.lazy(() => import('./components/NewProjectModal'));
+const AICreateModal = React.lazy(() => import('./components/AICreateModal'));
+const MeusProjetosView = React.lazy(() => import('./components/MeusProjetosView'));
+const BibliotecaView = React.lazy(() => import('./components/BibliotecaView'));
+const PerfilView = React.lazy(() => import('./components/PerfilView'));
+const MensagensView = React.lazy(() => import('./components/MensagensView'));
+const ConfiguracoesView = React.lazy(() => import('./components/ConfiguracoesView'));
+const ClientListView = React.lazy(() => import('./components/ClientListView'));
+const OnboardingView = React.lazy(() => import('./components/OnboardingView'));
+const RegistrationView = React.lazy(() => import('./components/RegistrationView'));
+
+import {
+  INITIAL_INSPIRATION,
+  RECENT_ACTIVITIES,
+  TEAM_MEMBERS
+} from './constants';
+import { InspirationItem, Project, Delivery, User, ClientAccount, mapUserFromDb, mapProjectFromDb } from './types';
+import { useAuth } from './hooks/useAuth';
+import { useProjects } from './hooks/useProjects';
+import { useClients } from './hooks/useClients';
+import { useMembers } from './hooks/useMembers';
+
+const LoadingFallback = () => (
+  <div className="flex-1 flex items-center justify-center p-20 animate-fade-in">
+    <div className="flex flex-col items-center gap-4">
+      <div className="size-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Carregando visualização...</p>
+    </div>
+  </div>
+);
+
+const App: React.FC = () => {
+  const {
+    user,
+    profile,
+    loading: authLoading,
+    signIn,
+    signOut,
+    updateProfile,
+    completeOnboarding,
+    validateToken,
+    signUpWithInvitation,
+    createInvitation
+  } = useAuth();
+
+  // Expose as global for child components to avoid prop drilling for now
+  useEffect(() => {
+    (window as any).authScope = { createInvitation };
+  }, [createInvitation]);
+  const { clients, loading: clientsLoading, createClient, deleteClient, refetch: refetchClients } = useClients(user?.id);
+  const [selectedClient, setSelectedClient] = useState<ClientAccount | null>(null);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const {
+    projects,
+    loading: projectsLoading,
+    createProject,
+    updateProject: supabaseUpdateProject,
+    deleteProject,
+    addGoal,
+    updateGoal,
+    deleteGoal,
+    addActivity
+  } = useProjects(selectedClient?.id ?? null);
+
+  const { members, deleteMember } = useMembers(selectedClient?.id ?? null);
+
+  // Estados de UI
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [isAICreateModalOpen, setIsAICreateModalOpen] = useState(false);
+
+  const selectedProject = useMemo(() => {
+    return projects.find(p => p.id === selectedProjectId) ? mapProjectFromDb(projects.find(p => p.id === selectedProjectId)!) : null;
+  }, [projects, selectedProjectId]);
+
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [registerToken, setRegisterToken] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [initStep, setInitStep] = useState(0);
+
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  // Parse URL for token
+  // Parse URL for token
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      setRegisterToken(token);
+    }
+  }, []);
+
+  // Loader logic removed as per user request
+
+  // Remove the early return that caused the hook violation!
+  // if (showGlobalLoader && !registerToken) return <InitialLoader />; <-- DELETED
+  useEffect(() => {
+    if (profile && profile.access_level === 'CLIENT') {
+      const client = clients.find(c => c.id === profile.client_id);
+      if (client) {
+        setSelectedClient({
+          id: client.id,
+          name: client.name,
+          logoUrl: client.logo_url || '',
+          projectsCount: 0,
+          activeDeliveries: 0,
+          lastActivity: 'Recent'
+        });
+      }
+    }
+  }, [profile, clients]);
+
+  const mappedProjects = useMemo(() => {
+    return projects.map(p => mapProjectFromDb(p));
+  }, [projects]);
+
+  const filteredProjects = mappedProjects;
+
+  const dynamicDeliveries = useMemo(() => {
+    const deliveries: Delivery[] = [];
+    const now = new Date();
+
+    filteredProjects.forEach(project => {
+      project.creativeGoals.forEach(goal => {
+        if (goal.dueDate && !goal.completed) {
+          const dueDate = new Date(goal.dueDate);
+          const diff = dueDate.getTime() - now.getTime();
+          const daysDiff = Math.ceil(diff / (1000 * 3600 * 24));
+
+          let dateLabel = dueDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+          if (daysDiff === 0) dateLabel = "Hoje";
+          if (daysDiff === 1) dateLabel = "Amanhã";
+
+          deliveries.push({
+            id: goal.id,
+            title: goal.text,
+            date: dateLabel,
+            fullDate: goal.dueDate,
+            type: goal.type,
+            colorClass: goal.type === 'video' ? 'bg-accent-peach' : (goal.type === 'design' ? 'bg-accent-mint' : 'bg-accent-lavender'),
+            icon: goal.type === 'video' ? 'video_library' : (goal.type === 'design' ? 'brush' : 'campaign'),
+            projectId: project.id,
+            responsible: TEAM_MEMBERS.find(m => m.id === goal.responsibleId),
+            status: goal.status,
+            isLate: dueDate.getTime() < now.getTime()
+          });
+        }
+      });
+    });
+    return deliveries.sort((a, b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime());
+  }, [filteredProjects]);
+
+  const handleLogin = async (email: string, password: string) => {
+    return await signIn(email, password);
+  };
+
+  const handleLogout = () => {
+    signOut();
+    setSelectedClient(null);
+  };
+
+  const updateProject = async (updatedProject: Project) => {
+    try {
+      await supabaseUpdateProject(updatedProject.id, {
+        title: updatedProject.title,
+        description: updatedProject.description,
+        status: updatedProject.status,
+        progress: updatedProject.progress,
+        priority: updatedProject.priority
+      });
+      if (selectedProjectId === updatedProject.id) {
+        // No need to set selectedProject manually as it is derived
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar projeto:', err);
+    }
+  };
+
+  const handleCreateProject = async (newProjectData: any) => {
+    try {
+      if (!selectedClient) return;
+      const data = await createProject({
+        client_id: selectedClient.id,
+        title: newProjectData.title,
+        description: newProjectData.description,
+        image_url: newProjectData.imageUrl,
+        due_date: newProjectData.dueDate && newProjectData.dueDate !== 'A definir' ? newProjectData.dueDate : null,
+        status: 'In Progress',
+        progress: 0,
+        priority: newProjectData.priority || false
+      });
+      setIsNewProjectModalOpen(false);
+      return data;
+    } catch (err) {
+      console.error('Erro ao criar projeto:', err);
+    }
+  };
+
+  const handleAICreateProject = async (projectData: any, goals: any[]) => {
+    try {
+      if (!selectedClient) throw new Error('Cliente não selecionado');
+
+      // 1. Criar Projeto
+      const project = await createProject({
+        client_id: selectedClient.id,
+        title: projectData.title,
+        description: projectData.description,
+        image_url: projectData.imageUrl || 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?q=80&w=2070&auto=format&fit=crop',
+        status: 'In Progress',
+        progress: 0,
+        priority: false
+      });
+
+      if (!project) throw new Error('Falha ao criar projeto');
+
+      // 2. Criar Metas (em paralelo para velocidade)
+      if (goals && goals.length > 0) {
+        await Promise.all(goals.map(goal => addGoal(project.id, {
+          text: goal.text,
+          description: goal.description,
+          type: goal.type,
+          status: 'Pendente',
+          completed: false
+        })));
+      }
+
+      // 3. Adicionar Atividade
+      await addActivity(project.id, {
+        userName: currentUser.name,
+        type: 'system',
+        content: `criou este projeto usando IA para ${selectedClient.name}`,
+        timestamp: new Date().toISOString(),
+        systemIcon: 'auto_awesome'
+      });
+
+      return project.id;
+    } catch (err) {
+      console.error('Erro na orquestração da criação com IA:', err);
+      throw err;
+    }
+  };
+
+  const handleCreateClient = async (newClient: ClientAccount, _clientUser: User) => {
+    try {
+      setIsInitializing(true);
+
+      // Garante que o loader dure exatamente 5 segundos mesmo que o DB responda rápido
+      await Promise.all([
+        createClient(newClient.name, newClient.logoUrl),
+        new Promise(resolve => setTimeout(resolve, 5000))
+      ]);
+
+      // Feedback de sucesso
+      console.log('Cliente criado com sucesso');
+
+    } catch (err) {
+      console.error('Erro ao criar cliente:', err);
+      alert('Erro ao criar cliente. Verifique o console.');
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
+  // Mapeamento de Clientes da DB para a UI
+  const mappedClients = useMemo(() => {
+    return (clients || []).map(c => {
+      const firstLetter = (c.name && typeof c.name === 'string' && c.name.length > 0)
+        ? c.name[0].toUpperCase()
+        : 'C';
+
+      return {
+        id: c.id,
+        name: c.name || 'Sem Nome',
+        logoUrl: c.logo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(firstLetter)}&background=8b5cf6&color=fff&size=150`,
+        projectsCount: 0,
+        activeDeliveries: 0,
+        lastActivity: 'Ativo'
+      };
+    });
+  }, [clients]);
+
+  // Conversão de profile do Supabase para o tipo User do frontend legado
+  const currentUser = useMemo(() => profile ? mapUserFromDb(profile) : null, [profile]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center font-body">
+        <div className="flex flex-col items-center gap-6 animate-pulse">
+          <div className="size-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Verificando sessão...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Se tem usuário mas não tem perfil, mostra um estado de "Carregando Perfil"
+  // Isso evita ficar preso no login se o Supabase demorar a responder sobre o perfil
+  if (user && !profile) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center font-body">
+        <div className="w-full max-w-[320px] flex flex-col items-center gap-8 text-center bg-white dark:bg-slate-900 p-12 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800">
+          <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <div className="space-y-2">
+            <p className="text-slate-800 dark:text-white font-black text-lg">Carregando Perfil</p>
+            <p className="text-slate-400 text-xs font-medium">Sincronizando seus dados com o workspace...</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="text-[10px] font-black uppercase tracking-widest text-rose-500 hover:opacity-70 transition-opacity"
+          >
+            Cancelar e Sair
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (registerToken) {
+    return (
+      <React.Suspense fallback={<LoadingFallback />}>
+        <RegistrationView
+          token={registerToken}
+          onValidateToken={validateToken}
+          onSignUp={signUpWithInvitation}
+          onCancel={() => {
+            setRegisterToken(null);
+            window.history.pushState({}, '', '/');
+          }}
+        />
+      </React.Suspense>
+    );
+  }
+
+  if (!user || !profile || !currentUser) return <LoginView onLogin={handleLogin} />;
+
+  // Se for CLIENT e não concluiu o onboarding, mostra a OnboardingView
+  if (currentUser.accessLevel === 'CLIENT' && !currentUser.isOnboarded) {
+    return (
+      <React.Suspense fallback={<LoadingFallback />}>
+        <OnboardingView
+          user={currentUser}
+          onComplete={async (data) => {
+            const { error } = await completeOnboarding({
+              name: data.name,
+              email: data.email,
+              whatsapp: data.whatsapp,
+              avatar_url: data.avatarUrl,
+              password: data.password
+            });
+
+            if (error) throw error;
+          }}
+          onLogout={handleLogout}
+        />
+      </React.Suspense>
+    );
+  }
+
+  // Se for MANAGER e não selecionou cliente, mostra lista de clientes
+  if (currentUser.accessLevel === 'MANAGER' && !selectedClient) {
+    return (
+      <React.Suspense fallback={<LoadingFallback />}>
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+          <header className="px-12 py-8 flex items-center justify-between bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="size-10 bg-primary rounded-xl flex items-center justify-center text-white">
+                <span className="material-symbols-outlined">palette</span>
+              </div>
+              <h1 className="text-xl font-black dark:text-white">Major Hub <span className="text-primary ml-2">• Gestão</span></h1>
+            </div>
+            <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500">Sair da Conta</button>
+          </header>
+          <ClientListView
+            clients={mappedClients as ClientAccount[]}
+            isLoading={clientsLoading}
+            onSelect={setSelectedClient}
+            onAddClient={handleCreateClient}
+          />
+          {isInitializing && <LoadingFallback />}
+        </div>
+      </React.Suspense>
+    );
+  }
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-background-light dark:bg-slate-950">
+      <Sidebar
+        user={currentUser}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
+
+      <main className={`flex-1 flex flex-col overflow-y-auto custom-scrollbar transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'lg:ml-0' : 'lg:ml-72'}`}>
+        <header className="pt-4 md:pt-10 pb-4 md:pb-6 flex items-center justify-between px-4 md:px-12 sticky top-0 z-30 bg-gradient-to-b from-background-light via-background-light/95 to-transparent dark:from-slate-950 dark:via-slate-950/95 dark:to-transparent backdrop-blur-md">
+          <div className="flex items-center gap-3 md:gap-6 flex-1 min-w-0">
+            {isSidebarCollapsed && (
+              <button
+                onClick={() => setIsSidebarCollapsed(false)}
+                className="hidden lg:flex p-2.5 text-primary hover:bg-white dark:hover:bg-slate-900 rounded-xl transition-all shadow-sm border border-slate-100 dark:border-slate-800 shrink-0"
+              >
+                <span className="material-symbols-outlined !text-[20px]">side_navigation</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2.5 text-slate-500 hover:bg-white dark:hover:bg-slate-900 rounded-xl transition-all shadow-sm border border-slate-100 dark:border-slate-800 shrink-0"
+            >
+              <span className="material-symbols-outlined !text-[20px]">menu</span>
+            </button>
+
+            {/* Contexto do Cliente Atual */}
+            {selectedClient && (
+              <div className="flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 px-4 py-2 rounded-2xl border border-slate-100 dark:border-slate-800 animate-fade-in">
+                <img src={selectedClient.logoUrl} className="size-6 object-contain filter grayscale" alt="" />
+                <span className="text-xs font-black text-slate-800 dark:text-slate-200 truncate max-w-[120px]">{selectedClient.name}</span>
+                {currentUser.accessLevel === 'MANAGER' && (
+                  <button onClick={() => setSelectedClient(null)} className="text-[10px] font-bold text-primary hover:underline">Trocar</button>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-6 ml-3">
+            {currentUser.accessLevel === 'MANAGER' && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsAICreateModalOpen(true)}
+                  className="bg-slate-900 dark:bg-slate-800 text-white p-2.5 md:py-3.5 md:px-6 rounded-full md:rounded-[1.25rem] hover:bg-slate-800 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 group shrink-0 border border-slate-700/50"
+                >
+                  <span className="material-symbols-outlined !text-[20px] md:!text-[22px] group-hover:rotate-12 transition-transform">psychology</span>
+                  <span className="hidden md:inline font-bold text-sm">Criar com IA</span>
+                </button>
+
+                <button
+                  onClick={() => setIsNewProjectModalOpen(true)}
+                  className="bg-primary text-white p-2.5 md:py-3.5 md:px-8 rounded-full md:rounded-[1.25rem] hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-95 group shrink-0"
+                >
+                  <span className="material-symbols-outlined !text-[20px] md:!text-[22px] group-hover:rotate-90 transition-transform">add</span>
+                  <span className="hidden md:inline font-bold text-sm">Novo Projeto</span>
+                </button>
+              </div>
+            )}
+
+            {/* Botão de Logout Desktop */}
+            <button
+              onClick={handleLogout}
+              className="hidden md:flex items-center gap-2 px-5 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all shadow-sm active:scale-95 group"
+            >
+              <span className="material-symbols-outlined !text-[20px] group-hover:scale-110 transition-transform">logout</span>
+              <span className="text-[10px] font-black uppercase tracking-widest">Sair</span>
+            </button>
+
+            <div className="relative shrink-0">
+              <button className="text-slate-500 hover:text-primary transition-colors p-2.5 bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-800 rounded-full md:rounded-2xl">
+                <span className="material-symbols-outlined !text-[20px] md:!text-[22px]">notifications</span>
+              </button>
+              <span className="absolute top-2.5 right-2.5 size-2 bg-rose-500 rounded-full border-2 border-background-light dark:border-slate-950"></span>
+            </div>
+
+            <button onClick={handleLogout} className="lg:hidden size-11 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-slate-400">
+              <span className="material-symbols-outlined">logout</span>
+            </button>
+          </div>
+        </header>
+
+        <div className={`w-full mx-auto ${activeTab === 'mensagens' ? 'h-[calc(100vh-100px)] md:h-[calc(100vh-140px)] px-2 md:px-6' : 'px-4 md:px-12 max-w-[1600px] py-6 md:py-10'}`}>
+          <React.Suspense fallback={<LoadingFallback />}>
+            {activeTab === 'dashboard' && (
+              <>
+                <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                  <div>
+                    <h2 className="text-2xl md:text-5xl font-extrabold tracking-tight mb-2 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-slate-700 to-slate-400 dark:from-white dark:to-slate-500">
+                      Dashboard {selectedClient?.name}
+                    </h2>
+                    <p className="text-slate-400 text-xs md:text-lg font-medium">Seu fluxo criativo está pronto para hoje.</p>
+                  </div>
+                </div>
+
+                <div className="mb-10 md:mb-20">
+                  <h3 className="text-[11px] md:text-xl font-bold flex items-center gap-2 text-slate-500 md:text-slate-900 dark:md:text-white uppercase mb-8">
+                    <span className="material-symbols-outlined text-primary">calendar_month</span>
+                    Próximas Entregas
+                  </h3>
+
+                  <div ref={carouselRef} className="flex overflow-x-auto gap-6 pb-10 no-scrollbar scroll-smooth touch-pan-x">
+                    {projectsLoading ? (
+                      // Loading skeleton simples
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border-2 border-slate-100 dark:border-slate-800 flex items-center gap-6 shrink-0 w-[320px] animate-pulse"
+                        >
+                          <div className="size-3 rounded-full shrink-0 bg-slate-200 dark:bg-slate-700" />
+                          <div className="flex-1 space-y-3">
+                            <div className="h-2 w-16 bg-slate-200 dark:bg-slate-700 rounded" />
+                            <div className="h-4 w-full bg-slate-200 dark:bg-slate-700 rounded" />
+                          </div>
+                        </div>
+                      ))
+                    ) : dynamicDeliveries.length > 0 ? (
+                      dynamicDeliveries.map((delivery) => (
+                        <div
+                          key={delivery.id}
+                          onClick={() => {
+                            const project = projects.find(p => p.id === delivery.projectId);
+                            if (project) setSelectedProjectId(project.id);
+                          }}
+                          className={`bg-white dark:bg-slate-900 p-8 rounded-[2rem] border-2 flex items-center gap-6 group hover:shadow-xl transition-all duration-500 cursor-pointer shrink-0 w-[320px] ${delivery.isLate ? 'border-rose-500/20' : 'border-slate-100 dark:border-slate-800'}`}
+                        >
+                          <div className={`size-3 rounded-full shrink-0 ${delivery.isLate ? 'bg-rose-500 animate-pulse' : 'bg-primary'}`} />
+                          <div className="flex-1 overflow-hidden">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${delivery.isLate ? 'text-rose-500' : 'text-slate-400'}`}>
+                                {delivery.date}
+                              </p>
+                            </div>
+                            <p className="text-base font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-primary transition-colors">{delivery.title}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-10 text-slate-400 italic text-sm">Nenhuma entrega próxima.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mb-10 flex items-center justify-between">
+                  <h3 className="text-lg md:text-3xl font-bold flex items-center gap-3">
+                    <span className="size-2 rounded-full bg-primary" />
+                    Projetos em Foco
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+                  {projectsLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="h-[400px] bg-slate-100 dark:bg-slate-900 rounded-[2rem] animate-pulse border border-slate-200 dark:border-slate-800" />
+                    ))
+                  ) : filteredProjects.map((project) => (
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      onClick={() => setSelectedProjectId(project.id)}
+                    />
+                  ))}
+                  {!projectsLoading && filteredProjects.length === 0 && (
+                    <div className="col-span-full py-20 bg-white/50 dark:bg-slate-900/50 rounded-[3rem] border-2 border-dashed border-slate-100 dark:border-slate-800 flex flex-col items-center justify-center text-slate-400 gap-4">
+                      <span className="material-symbols-outlined !text-[48px] opacity-20">folder_open</span>
+                      <p className="text-sm font-bold uppercase tracking-widest">Nenhum projeto encontrado para este cliente</p>
+                      {currentUser.accessLevel === 'MANAGER' && (
+                        <button onClick={() => setIsNewProjectModalOpen(true)} className="text-primary font-bold hover:underline">Criar novo projeto</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {activeTab === 'projetos' && (
+              <MeusProjetosView
+                projects={filteredProjects}
+                upcomingDeliveries={dynamicDeliveries}
+                onUpdateProject={updateProject}
+                onSelectProject={(p) => setSelectedProjectId(p.id)}
+                isLoading={projectsLoading}
+              />
+            )}
+
+            {activeTab === 'biblioteca' && <BibliotecaView projects={filteredProjects} />}
+            {activeTab === 'perfil' && currentUser && (
+              <PerfilView
+                user={currentUser}
+                onUpdateUser={async (updatedUser) => {
+                  // Map frontend camelCase to backend snake_case
+                  const dbUpdates: Record<string, any> = {};
+
+                  // Mapear todos os campos corretamente
+                  if (updatedUser.name !== undefined) dbUpdates.name = updatedUser.name;
+                  if (updatedUser.role !== undefined) dbUpdates.role = updatedUser.role;
+                  if (updatedUser.bio !== undefined) dbUpdates.bio = updatedUser.bio;
+                  if (updatedUser.avatarUrl !== undefined) dbUpdates.avatar_url = updatedUser.avatarUrl;
+                  if (updatedUser.coverUrl !== undefined) dbUpdates.cover_url = updatedUser.coverUrl;
+                  if (updatedUser.skills !== undefined) dbUpdates.skills = updatedUser.skills;
+                  if (updatedUser.location !== undefined) dbUpdates.location = updatedUser.location;
+                  if (updatedUser.website !== undefined) dbUpdates.website = updatedUser.website;
+
+                  return await updateProfile(dbUpdates);
+                }}
+              />
+            )}
+            {activeTab === 'mensagens' && currentUser && <MensagensView currentUser={currentUser} />}
+            {activeTab === 'configurações' && currentUser && (
+              <ConfiguracoesView
+                currentUser={currentUser}
+                projects={filteredProjects}
+                onDeleteProject={async (id) => {
+                  await deleteProject(id);
+                }}
+                selectedClient={selectedClient}
+                onDeleteClient={async (id) => {
+                  await deleteClient(id);
+                  setSelectedClient(null);
+                }}
+                members={members}
+                onDeleteMember={deleteMember}
+              />
+            )}
+          </React.Suspense>
+        </div>
+      </main>
+
+      <React.Suspense fallback={null}>
+        {selectedProject && (
+          <ProjectDetailsModal
+            project={selectedProject}
+            onClose={() => setSelectedProjectId(null)}
+            onUpdate={updateProject}
+            onDelete={deleteProject}
+            currentUser={currentUser}
+            onAddGoal={addGoal}
+            onUpdateGoal={updateGoal}
+            onDeleteGoal={deleteGoal}
+            onAddActivity={addActivity}
+          />
+        )}
+
+        {isNewProjectModalOpen && selectedClient && (
+          <NewProjectModal
+            onClose={() => setIsNewProjectModalOpen(false)}
+            onCreate={handleCreateProject}
+            currentUser={currentUser}
+            currentClient={selectedClient}
+          />
+        )}
+
+        {isAICreateModalOpen && selectedClient && (
+          <AICreateModal
+            onClose={() => setIsAICreateModalOpen(false)}
+            currentUser={currentUser}
+            currentClient={selectedClient}
+            onCreateProject={handleAICreateProject}
+            onViewProject={(id) => {
+              setSelectedProjectId(id);
+              setIsAICreateModalOpen(false);
+              setActiveTab('projetos');
+            }}
+            existingProjects={mappedProjects}
+          />
+        )}
+      </React.Suspense>
+
+
+    </div>
+  );
+};
+
+export default App;
