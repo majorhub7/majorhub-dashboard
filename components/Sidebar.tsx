@@ -51,15 +51,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         ${isCollapsed ? 'lg:-translate-x-full lg:opacity-0 lg:pointer-events-none' : 'lg:translate-x-0 lg:opacity-100'}
       `}>
-        {/* Header / Logo */}
         <div className="p-8 pt-10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="size-10 bg-primary rounded-lg flex items-center justify-center text-white shadow-glow-sm">
-              <span className="material-symbols-outlined !text-[22px]">palette</span>
-            </div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Major<span className="text-primary">Hub</span>
-            </h1>
+            <img
+              src="https://majorhub.com.br/logo-majorhub.svg"
+              alt="Major Hub"
+              className="h-10 w-auto"
+            />
           </div>
           <div className="flex items-center gap-1">
             {/* Desktop Collapse Button */}

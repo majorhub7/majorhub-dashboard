@@ -67,10 +67,11 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onSignUp }) => {
     <div className="fixed inset-0 bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6 z-[100] font-body">
       <div className="w-full max-w-[480px] bg-white dark:bg-slate-900 rounded-[3rem] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.1)] p-10 md:p-16 border border-slate-100 dark:border-slate-800 animate-scale-up">
         <div className="flex flex-col items-center mb-12">
-          <div className="size-16 bg-gradient-to-br from-violet-400 to-primary rounded-[1.5rem] flex items-center justify-center text-white shadow-xl shadow-primary/20 mb-6">
-            <span className="material-symbols-outlined !text-[36px]">palette</span>
-          </div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Major Hub</h1>
+          <img
+            src="https://majorhub.com.br/logo-majorhub.svg"
+            alt="Major Hub"
+            className="h-16 w-auto mb-6 transition-transform hover:scale-105 duration-300"
+          />
           <p className="text-slate-400 text-sm font-medium">
             {isSignUp ? 'Crie sua conta' : 'Acesse seu workspace criativo'}
           </p>

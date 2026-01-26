@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Allow: /login
+Disallow: /dashboard
+Disallow: /projetos
+Disallow: /configuracoes
+Disallow: /api/
+
+Sitemap: https://majorhub.com.br/sitemap.xml

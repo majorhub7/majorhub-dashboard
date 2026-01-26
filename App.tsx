@@ -334,10 +334,13 @@ const App: React.FC = () => {
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
           <header className="px-12 py-8 flex items-center justify-between bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="size-10 bg-primary rounded-xl flex items-center justify-center text-white">
-                <span className="material-symbols-outlined">palette</span>
-              </div>
-              <h1 className="text-xl font-black dark:text-white">Major Hub <span className="text-primary ml-2">• Gestão</span></h1>
+              <img
+                src="https://majorhub.com.br/logo-majorhub.svg"
+                alt="Major Hub"
+                className="h-10 w-auto"
+              />
+              <span className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2"></span>
+              <span className="text-xs font-black uppercase tracking-widest text-primary">Gestão</span>
             </div>
             <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500">Sair da Conta</button>
           </header>
