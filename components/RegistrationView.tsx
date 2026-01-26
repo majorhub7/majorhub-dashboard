@@ -18,6 +18,7 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, 
     const [screen, setScreen] = useState<'loading' | 'welcome' | 'form' | 'success' | 'invalid'>('loading');
     const [inviteData, setInviteData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string>('');
@@ -76,6 +77,7 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, 
             // Legacy Flow: Token Invite
             const { data, error } = await onValidateToken(token);
             if (error || !data) {
+                setErrorMessage(error?.message || 'Erro desconhecido');
                 setScreen('invalid');
             } else {
                 setInviteData(data);
@@ -181,7 +183,9 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, 
                         <span className="material-symbols-outlined !text-[40px]">error</span>
                     </div>
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-4">Convite Inválido</h2>
-                    <p className="text-slate-500 dark:text-slate-400 mb-8 text-sm">Este link de convite expirou ou já foi utilizado para criar uma conta.</p>
+                    <p className="text-slate-500 dark:text-slate-400 mb-8 text-sm">
+                        {errorMessage ? `Erro: ${errorMessage}` : 'Este link de convite expirou ou já foi utilizado para criar uma conta.'}
+                    </p>
                     <button onClick={onCancel} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase tracking-widest text-[10px]">Voltar ao Login</button>
                 </div>
             </div>

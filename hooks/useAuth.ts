@@ -258,15 +258,14 @@ export function useAuth() {
     };
 
     const validateToken = async (token: string) => {
-        const { data, error } = await (supabase
-            .from('invitations') as any)
-            .select('*, client:clients(name)')
-            .eq('token', token)
-            .is('used_at', null)
-            .gt('expires_at', new Date().toISOString())
-            .single();
+        // Use RPC to bypass RLS for token validation
+        const { data, error } = await supabase
+            .rpc('validate_invite_token', { token_input: token });
 
-        return { data, error };
+        if (error) return { error, data: null };
+        if (!data) return { error: { message: 'Convite inválido ou expirado' }, data: null };
+
+        return { data, error: null };
     };
 
     const signUpWithInvitation = async (data: any) => {
