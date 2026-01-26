@@ -4,13 +4,14 @@ import { supabase } from '../services/supabase';
 import { useAuth } from '../hooks/useAuth';
 
 interface RegistrationViewProps {
-    token: string;
+    token?: string;
+    inviteCode?: string;
     onValidateToken: (token: string) => Promise<{ data: any; error: any }>;
     onSignUp: (data: any) => Promise<{ error: any }>;
     onCancel: () => void;
 }
 
-const RegistrationView: React.FC<RegistrationViewProps> = ({ token, onValidateToken, onSignUp, onCancel }) => {
+const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, onValidateToken, onSignUp, onCancel }) => {
     const { user: authUser } = useAuth();
     const [screen, setScreen] = useState<'loading' | 'welcome' | 'form' | 'success' | 'invalid'>('loading');
     const [inviteData, setInviteData] = useState<any>(null);
@@ -40,12 +41,40 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, onValidateTo
 
     const validate = async () => {
         setScreen('loading');
-        const { data, error } = await onValidateToken(token);
-        if (error || !data) {
-            setScreen('invalid');
+
+        if (inviteCode) {
+            // New Flow: Project Invite
+            try {
+                // Using any here because types are not yet updated with the new RPC
+                const { data, error } = await (supabase as any)
+                    .rpc('get_project_by_invite_code', { code: inviteCode })
+                    .single();
+
+                if (error || !data) {
+                    setScreen('invalid');
+                } else {
+                    // Structure data to match expected inviteData format or add specific fields
+                    setInviteData({
+                        ...data,
+                        type: 'project_invite',
+                        role: 'CLIENT' // Default role
+                    });
+                    setScreen('welcome');
+                }
+            } catch (err) {
+                setScreen('invalid');
+            }
+        } else if (token) {
+            // Legacy Flow: Token Invite
+            const { data, error } = await onValidateToken(token);
+            if (error || !data) {
+                setScreen('invalid');
+            } else {
+                setInviteData(data);
+                setScreen('welcome');
+            }
         } else {
-            setInviteData(data);
-            setScreen('welcome');
+            setScreen('invalid');
         }
     };
 
@@ -114,6 +143,7 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, onValidateTo
             const { error } = await onSignUp({
                 ...formData,
                 token,
+                inviteCode,
                 avatar_url: finalAvatarUrl
             });
 
@@ -156,16 +186,30 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, onValidateTo
                     <div className="size-20 bg-primary/10 rounded-[2rem] flex items-center justify-center text-primary mx-auto mb-10">
                         <span className="material-symbols-outlined !text-[40px]">waving_hand</span>
                     </div>
-                    <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-6">Bem-vindo à MajorHub</h1>
+                    <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-6">
+                        {inviteData?.type === 'project_invite'
+                            ? `Bem-vindo ao projeto ${inviteData.project_title}`
+                            : 'Bem-vindo à MajorHub'}
+                    </h1>
                     <p className="text-slate-500 dark:text-slate-400 leading-relaxed mb-10">
-                        Sua conta foi criada e o acesso ao seu projeto já está liberado.<br /><br />
-                        Antes de entrar no dashboard, precisamos finalizar seu perfil para organizar a comunicação e garantir segurança no acesso.
+                        {inviteData?.type === 'project_invite' ? (
+                            <>
+                                Você foi convidado para colaborar no projeto <strong>{inviteData.project_title}</strong> da empresa <strong>{inviteData.client_name}</strong>.
+                                <br /><br />
+                                Crie sua conta para acessar o dashboard.
+                            </>
+                        ) : (
+                            <>
+                                Sua conta foi criada e o acesso ao seu projeto já está liberado.<br /><br />
+                                Antes de entrar no dashboard, precisamos finalizar seu perfil para organizar a comunicação e garantir segurança no acesso.
+                            </>
+                        )}
                     </p>
                     <button
                         onClick={() => setScreen('form')}
                         className="w-full bg-primary text-white py-5 rounded-2xl text-[12px] font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                     >
-                        Continuar
+                        {inviteData?.type === 'project_invite' ? 'Criar minha conta' : 'Continuar'}
                     </button>
                 </div>
             </div>

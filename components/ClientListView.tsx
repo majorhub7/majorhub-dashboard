@@ -7,7 +7,9 @@ interface ClientListViewProps {
   clients: ClientAccount[];
   isLoading?: boolean;
   onSelect: (client: ClientAccount) => void;
-  onAddClient: (newClient: ClientAccount, clientUser: User) => void;
+  onAddClient: (newClient: ClientAccount) => void; // Changed signature
+  createClient: (name: string, logoUrl?: string) => Promise<any>; // New prop
+  createInvitation: (clientId: string, role?: string) => Promise<any>; // New prop
 }
 
 /** Skeleton Card for loading state - matches real card dimensions */
@@ -43,7 +45,9 @@ const ClientListView: React.FC<ClientListViewProps> = ({
   clients,
   isLoading = false,
   onSelect,
-  onAddClient
+  onAddClient,
+  createClient,
+  createInvitation
 }) => {
   const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
 
@@ -134,10 +138,12 @@ const ClientListView: React.FC<ClientListViewProps> = ({
       {isNewClientModalOpen && (
         <NewClientModal
           onClose={() => setIsNewClientModalOpen(false)}
-          onCreate={(newClient, clientUser) => {
-            onAddClient(newClient, clientUser);
-            setIsNewClientModalOpen(false);
+          onSuccess={(newClient) => {
+            onAddClient(newClient);
+            // Keep modal open, user will close it
           }}
+          createClient={createClient}
+          createInvitation={createInvitation}
         />
       )}
 

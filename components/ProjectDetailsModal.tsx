@@ -48,11 +48,14 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
   const [confirmName, setConfirmName] = useState('');
   const [showChatPanel, setShowChatPanel] = useState(false);
   const [activeSidePanel, setActiveSidePanel] = useState<'timeline' | 'ai'>('timeline');
+  const [showInviteCopied, setShowInviteCopied] = useState(false);
 
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [isSavingDesc, setIsSavingDesc] = useState(false);
   const [isAnalyzingBriefing, setIsAnalyzingBriefing] = useState(false);
   const [tempDesc, setTempDesc] = useState(project.description);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [tempTitle, setTempTitle] = useState(project.title);
 
   // Lazy Load Activities (Performance Logic)
   const { activities: fetchedActivities, loading: activitiesLoading, addLocalActivity } = useProjectDetails(project.id);
@@ -140,6 +143,21 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
     }
   };
 
+  const handleUpdateTitle = async () => {
+    if (tempTitle.trim() && tempTitle !== project.title) {
+      setIsSavingDesc(true);
+      try {
+        await onUpdate({ ...project, title: tempTitle });
+        logActivity('system', `renomeou o projeto para "${tempTitle}"`, 'edit');
+      } catch (err) {
+        console.error('Erro ao atualizar título:', err);
+      } finally {
+        setIsSavingDesc(false);
+      }
+    }
+    setIsEditingTitle(false);
+  };
+
   const handleAnalyzeBriefing = async () => {
     if (!project.description || isAnalyzingBriefing) return;
     setIsAnalyzingBriefing(true);
@@ -216,7 +234,8 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
         status: updatedGoal.status,
         type: updatedGoal.type,
         due_date: updatedGoal.dueDate,
-        responsible_id: updatedGoal.responsibleId
+        responsible_id: updatedGoal.responsibleId,
+        internal_checklist: updatedGoal.internalChecklist
       });
       setSelectedGoal(updatedGoal);
     } else {
@@ -394,9 +413,31 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
 
               <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-10">
                 <div className="flex-1 min-w-0">
-                  <h2 className={`${getTitleFontSize(project.title)} font-black text-slate-900 dark:text-white tracking-tighter leading-[1.1] mb-8 transition-all duration-300 break-words`}>
-                    {project.title}
-                  </h2>
+                  {isEditingTitle ? (
+                    <div className="mb-8">
+                      <input
+                        type="text"
+                        value={tempTitle}
+                        onChange={(e) => setTempTitle(e.target.value)}
+                        onBlur={handleUpdateTitle}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        autoFocus
+                        className={`${getTitleFontSize(tempTitle)} font-black text-slate-900 dark:text-white tracking-tighter leading-[1.1] transition-all duration-300 break-words bg-transparent border-b-2 border-primary focus:outline-none w-full`}
+                      />
+                    </div>
+                  ) : (
+                    <h2
+                      onClick={() => { setIsEditingTitle(true); setTempTitle(project.title); }}
+                      className={`${getTitleFontSize(project.title)} font-black text-slate-900 dark:text-white tracking-tighter leading-[1.1] mb-8 transition-all duration-300 break-words cursor-pointer hover:text-primary group`}
+                    >
+                      {project.title}
+                      <span className="ml-3 text-base text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">✏️</span>
+                    </h2>
+                  )}
 
                   <div className="flex flex-wrap items-center gap-8">
                     <button onClick={() => updateStatus('In Progress')} className="group flex items-center gap-3 transition-all">
@@ -413,13 +454,33 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
                     </button>
 
                     {currentUser.accessLevel === 'MANAGER' && (
-                      <button
-                        onClick={() => setShowDeleteConfirm(true)}
-                        className="flex items-center gap-2 text-rose-500/40 hover:text-rose-500 transition-colors ml-auto group/del"
-                      >
-                        <span className="material-symbols-outlined !text-[18px]">delete</span>
-                        <span className="text-[10px] font-black uppercase tracking-widest group-hover/del:underline">Excluir Projeto</span>
-                      </button>
+                      <div className="flex items-center gap-4 ml-auto">
+                        <button
+                          onClick={() => {
+                            const inviteLink = `${window.location.origin}?invite=${project.inviteCode || ''}`;
+                            navigator.clipboard.writeText(inviteLink);
+                            setShowInviteCopied(true);
+                            setTimeout(() => setShowInviteCopied(false), 2000);
+                            logActivity('system', 'copiou o link de convite do projeto', 'link');
+                          }}
+                          className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors group/link"
+                        >
+                          <span className="material-symbols-outlined !text-[18px]">link</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest group-hover/link:underline">
+                            {showInviteCopied ? 'Link Copiado!' : 'Copiar Convite'}
+                          </span>
+                        </button>
+
+                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
+
+                        <button
+                          onClick={() => setShowDeleteConfirm(true)}
+                          className="flex items-center gap-2 text-rose-500/40 hover:text-rose-500 transition-colors group/del"
+                        >
+                          <span className="material-symbols-outlined !text-[18px]">delete</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest group-hover/del:underline">Excluir Projeto</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

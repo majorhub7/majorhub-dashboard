@@ -54,7 +54,8 @@ const App: React.FC = () => {
     completeOnboarding,
     validateToken,
     signUpWithInvitation,
-    createInvitation
+    createInvitation,
+    signUpWithProjectInvite
   } = useAuth();
 
   // Expose as global for child components to avoid prop drilling for now
@@ -103,242 +104,185 @@ const App: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
+    const inviteCode = params.get('invite');
     if (token) {
       setRegisterToken(token);
+    } else if (inviteCode) {
+      setRegisterToken(`invite:${inviteCode}`); // Hack to trigger view, improved below
     }
   }, []);
 
-  // Loader logic removed as per user request
+  // --- Derived State & Memos (Restored) ---
 
-  // Remove the early return that caused the hook violation!
-  // if (showGlobalLoader && !registerToken) return <InitialLoader />; <-- DELETED
-  useEffect(() => {
-    if (profile && profile.access_level === 'CLIENT') {
-      const client = clients.find(c => c.id === profile.client_id);
-      if (client) {
-        setSelectedClient({
-          id: client.id,
-          name: client.name,
-          logoUrl: client.logo_url || '',
-          projectsCount: 0,
-          activeDeliveries: 0,
-          lastActivity: 'Recent'
-        });
-      }
-    }
-  }, [profile, clients]);
+  const currentUser = useMemo(() => {
+    return profile ? mapUserFromDb(profile) : null;
+  }, [profile]);
+
+  const mappedClients = useMemo(() => {
+    return clients.map(client => ({
+      id: client.id,
+      name: client.name,
+      logoUrl: client.logo_url || '',
+      projectsCount: 0,
+      activeDeliveries: 0,
+      lastActivity: 'Hoje'
+    }));
+  }, [clients]);
 
   const mappedProjects = useMemo(() => {
-    return projects.map(p => mapProjectFromDb(p));
+    return projects.map(mapProjectFromDb);
   }, [projects]);
 
   const filteredProjects = mappedProjects;
 
   const dynamicDeliveries = useMemo(() => {
-    const deliveries: Delivery[] = [];
-    const now = new Date();
-
-    filteredProjects.forEach(project => {
+    const allDeliveries: Delivery[] = [];
+    mappedProjects.forEach(project => {
       project.creativeGoals.forEach(goal => {
-        if (goal.dueDate && !goal.completed) {
+        if (goal.dueDate) {
           const dueDate = new Date(goal.dueDate);
-          const diff = dueDate.getTime() - now.getTime();
-          const daysDiff = Math.ceil(diff / (1000 * 3600 * 24));
-
-          let dateLabel = dueDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-          if (daysDiff === 0) dateLabel = "Hoje";
-          if (daysDiff === 1) dateLabel = "Amanhã";
-
-          deliveries.push({
+          allDeliveries.push({
             id: goal.id,
             title: goal.text,
-            date: dateLabel,
+            date: dueDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
             fullDate: goal.dueDate,
-            type: goal.type,
-            colorClass: goal.type === 'video' ? 'bg-accent-peach' : (goal.type === 'design' ? 'bg-accent-mint' : 'bg-accent-lavender'),
-            icon: goal.type === 'video' ? 'video_library' : (goal.type === 'design' ? 'brush' : 'campaign'),
             projectId: project.id,
-            responsible: TEAM_MEMBERS.find(m => m.id === goal.responsibleId),
-            status: goal.status,
-            isLate: dueDate.getTime() < now.getTime()
-          });
+            type: goal.type,
+            colorClass: 'bg-primary',
+            icon: 'flag',
+            isLate: dueDate < new Date() && goal.status !== 'Concluído',
+            status: goal.status
+          } as Delivery);
         }
       });
     });
-    return deliveries.sort((a, b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime());
-  }, [filteredProjects]);
+    return allDeliveries.sort((a, b) => new Date(a.fullDate || '').getTime() - new Date(b.fullDate || '').getTime());
+  }, [mappedProjects]);
 
-  const handleLogin = async (email: string, password: string) => {
-    return await signIn(email, password);
+  // Adapter for updateProject to handle different component signatures
+  const updateProject = async (arg1: any, arg2?: any) => {
+    // If first arg is string (ID) and second is updates object -> Standard hook usage
+    if (typeof arg1 === 'string') {
+      return supabaseUpdateProject(arg1, arg2);
+    }
+    // If first arg is object (Project) -> Component usage (MeusProjetosView, etc)
+    else if (typeof arg1 === 'object' && arg1.id) {
+      const project = arg1;
+      const updates: any = {};
+
+      // Common fields mapping
+      if (project.status) updates.status = project.status;
+      if (project.progress !== undefined) updates.progress = project.progress;
+      if (project.title) updates.title = project.title;
+      if (project.description) updates.description = project.description;
+      if (project.priority !== undefined) updates.priority = project.priority;
+
+      // Add other fields as needed
+
+      return supabaseUpdateProject(project.id, updates);
+    }
   };
 
-  const handleLogout = () => {
-    signOut();
-    setSelectedClient(null);
-  };
+  // --- Event Handlers (Restored & Fixed) ---
 
-  const updateProject = async (updatedProject: Project) => {
+  const handleCreateProject = async (projectData: any, goals: any[] = []): Promise<string> => {
+    if (!selectedClient) return "";
     try {
-      await supabaseUpdateProject(updatedProject.id, {
-        title: updatedProject.title,
-        description: updatedProject.description,
-        status: updatedProject.status,
-        progress: updatedProject.progress,
-        priority: updatedProject.priority
-      });
-      if (selectedProjectId === updatedProject.id) {
-        // No need to set selectedProject manually as it is derived
+      const { activities, ...restProjectData } = projectData;
+
+      const newProject = await createProject({
+        ...restProjectData,
+        client_id: selectedClient.id
+      }) as any;
+
+      if (newProject) {
+        // Add goals if provided
+        if (goals && goals.length > 0) {
+          for (const goal of goals) {
+            await addGoal(newProject.id, goal);
+          }
+        }
+
+        // Add activities if provided (e.g. from NewProjectModal)
+        if (activities && activities.length > 0) {
+          for (const activity of activities) {
+            await addActivity(newProject.id, activity);
+          }
+        }
+
+        setIsNewProjectModalOpen(false);
+        return newProject.id;
       }
-    } catch (err) {
-      console.error('Erro ao atualizar projeto:', err);
+    } catch (error) {
+      console.error("Error creating project:", error);
     }
+    return "";
   };
 
-  const handleCreateProject = async (newProjectData: any) => {
+  const handleAICreateProject = async (projectData: any, goals: any[] = []): Promise<string> => {
+    if (!selectedClient) return "";
     try {
-      if (!selectedClient) return;
-      const data = await createProject({
-        client_id: selectedClient.id,
-        title: newProjectData.title,
-        description: newProjectData.description,
-        image_url: newProjectData.imageUrl,
-        due_date: newProjectData.dueDate && newProjectData.dueDate !== 'A definir' ? newProjectData.dueDate : null,
-        status: 'In Progress',
-        progress: 0,
-        priority: newProjectData.priority || false
-      });
-      setIsNewProjectModalOpen(false);
-      return data;
-    } catch (err) {
-      console.error('Erro ao criar projeto:', err);
-    }
-  };
+      const { activities, ...restProjectData } = projectData;
 
-  const handleAICreateProject = async (projectData: any, goals: any[]) => {
-    try {
-      if (!selectedClient) throw new Error('Cliente não selecionado');
+      const newProject = await createProject({
+        ...restProjectData,
+        client_id: selectedClient.id
+      }) as any;
 
-      // 1. Criar Projeto
-      const project = (await createProject({
-        client_id: selectedClient.id,
-        title: projectData.title,
-        description: projectData.description,
-        image_url: projectData.imageUrl || 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?q=80&w=2070&auto=format&fit=crop',
-        status: 'In Progress',
-        progress: 0,
-        priority: false
-      })) as any;
+      if (newProject) {
+        // Add goals if provided
+        if (goals && goals.length > 0) {
+          for (const goal of goals) {
+            await addGoal(newProject.id, goal);
+          }
+        }
 
-      if (!project) throw new Error('Falha ao criar projeto');
+        // Add activities if provided
+        if (activities && activities.length > 0) {
+          for (const activity of activities) {
+            await addActivity(newProject.id, activity);
+          }
+        }
 
-      // 2. Criar Metas (em paralelo para velocidade)
-      if (goals && goals.length > 0) {
-        await Promise.all(goals.map(goal => addGoal(project.id, {
-          text: goal.text,
-          description: goal.description,
-          type: goal.type,
-          status: 'Pendente',
-          completed: false
-        })));
+        setSelectedProjectId(newProject.id);
+        setActiveTab('projetos');
+        setIsAICreateModalOpen(false);
+        return newProject.id;
       }
-
-      // 3. Adicionar Atividade
-      await addActivity(project.id, {
-        userName: currentUser.name,
-        type: 'system',
-        content: `criou este projeto usando IA para ${selectedClient.name}`,
-        timestamp: new Date().toISOString(),
-        systemIcon: 'auto_awesome'
-      });
-
-      return project.id;
-    } catch (err) {
-      console.error('Erro na orquestração da criação com IA:', err);
-      throw err;
+    } catch (error) {
+      console.error("Error creating AI project:", error);
     }
+    return "";
   };
 
-  const handleCreateClient = async (newClient: ClientAccount, _clientUser: User) => {
-    try {
-      setIsInitializing(true);
-
-      // Garante que o loader dure exatamente 5 segundos mesmo que o DB responda rápido
-      await Promise.all([
-        createClient(newClient.name, newClient.logoUrl),
-        new Promise(resolve => setTimeout(resolve, 5000))
-      ]);
-
-      // Feedback de sucesso
-
-    } catch (err) {
-      console.error('Erro ao criar cliente:', err);
-      alert('Erro ao criar cliente. Verifique o console.');
-    } finally {
-      setIsInitializing(false);
-    }
+  const handleCreateClient = async (newClient: ClientAccount) => {
+    // Client is already created by the modal, we just need to refresh list
+    await refetchClients();
+    setSelectedClient(newClient);
   };
 
-  // Mapeamento de Clientes da DB para a UI
-  const mappedClients = useMemo(() => {
-    return (clients || []).map(c => {
-      const firstLetter = (c.name && typeof c.name === 'string' && c.name.length > 0)
-        ? c.name[0].toUpperCase()
-        : 'C';
+  const handleLogout = async () => {
+    await signOut();
+    window.location.href = '/';
+  };
 
-      return {
-        id: c.id,
-        name: c.name || 'Sem Nome',
-        logoUrl: c.logo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(firstLetter)}&background=8b5cf6&color=fff&size=150`,
-        projectsCount: 0,
-        activeDeliveries: 0,
-        lastActivity: 'Ativo'
-      };
-    });
-  }, [clients]);
+  // ---------------------------------
 
-  // Conversão de profile do Supabase para o tipo User do frontend legado
-  const currentUser = useMemo(() => profile ? mapUserFromDb(profile) : null, [profile]);
+  // ... (keep existing code)
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center font-body">
-        <div className="flex flex-col items-center gap-6 animate-pulse">
-          <div className="size-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Verificando sessão...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Se tem usuário mas não tem perfil, mostra um estado de "Carregando Perfil"
-  // Isso evita ficar preso no login se o Supabase demorar a responder sobre o perfil
-  if (user && !profile) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center font-body">
-        <div className="w-full max-w-[320px] flex flex-col items-center gap-8 text-center bg-white dark:bg-slate-900 p-12 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800">
-          <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <div className="space-y-2">
-            <p className="text-slate-800 dark:text-white font-black text-lg">Carregando Perfil</p>
-            <p className="text-slate-400 text-xs font-medium">Sincronizando seus dados com o workspace...</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="text-[10px] font-black uppercase tracking-widest text-rose-500 hover:opacity-70 transition-opacity"
-          >
-            Cancelar e Sair
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // ... (keep existing code)
 
   if (registerToken) {
+    const isProjectInvite = registerToken.startsWith('invite:');
+    const actualToken = isProjectInvite ? registerToken.split(':')[1] : registerToken;
+
     return (
       <React.Suspense fallback={<LoadingFallback />}>
         <RegistrationView
-          token={registerToken}
+          token={!isProjectInvite ? actualToken : ''}
+          inviteCode={isProjectInvite ? actualToken : undefined}
           onValidateToken={validateToken}
-          onSignUp={signUpWithInvitation}
+          onSignUp={!isProjectInvite ? signUpWithInvitation : signUpWithProjectInvite}
           onCancel={() => {
             setRegisterToken(null);
             window.history.pushState({}, '', '/');
@@ -348,7 +292,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (!user || !profile || !currentUser) return <LoginView onLogin={handleLogin} onSignUp={signUp} />;
+  if (!user || !profile || !currentUser) return <LoginView onLogin={signIn} onSignUp={signUp} />;
 
   // Se for CLIENT e não concluiu o onboarding, mostra a OnboardingView
   if (currentUser.accessLevel === 'CLIENT' && !currentUser.isOnboarded) {
@@ -392,6 +336,8 @@ const App: React.FC = () => {
             isLoading={clientsLoading}
             onSelect={setSelectedClient}
             onAddClient={handleCreateClient}
+            createClient={createClient}
+            createInvitation={createInvitation}
           />
           {isInitializing && <LoadingFallback />}
         </div>
@@ -661,6 +607,7 @@ const App: React.FC = () => {
           onClose={() => setIsSidebarOpen(false)}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onLogout={handleLogout}
         />
 
         <React.Suspense fallback={null}>

@@ -42,10 +42,25 @@ export function useProjects(clientId: string | null) {
         fetchProjects();
     }, [clientId, fetchProjects]);
 
-    const createProject = useCallback(async (project: ProjectInsert) => {
+    const createProject = useCallback(async (project: any) => {
+        // Generate a random invite code if not provided
+        const inviteCode = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 6);
+
+        // Explicitly map fields to match the database schema
+        const projectData: ProjectInsert = {
+            client_id: project.clientId || project.client_id,
+            title: project.title,
+            description: project.description,
+            image_url: project.imageUrl || project.image_url,
+            status: project.status || 'In Progress',
+            due_date: (project.dueDate && project.dueDate !== 'A definir') ? project.dueDate : null,
+            progress: project.progress || 0,
+            priority: project.priority || false
+        };
+
         const { data, error } = await supabase
             .from('projects')
-            .insert(project as any)
+            .insert({ ...projectData, invite_code: inviteCode } as any)
             .select()
             .single();
 
@@ -113,7 +128,7 @@ export function useProjects(clientId: string | null) {
     const updateGoal = useCallback(async (goalId: string, updates: any) => {
         const { data, error } = await supabase
             .from('creative_goals')
-            .update(updates)
+            .update(updates as any)
             .eq('id', goalId)
             .select()
             .single();

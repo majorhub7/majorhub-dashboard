@@ -134,6 +134,7 @@ export type Database = {
                     type: 'video' | 'design' | 'campaign'
                     due_date: string | null
                     responsible_id: string | null
+                    internal_checklist: Json | null
                     created_at: string
                 }
                 Insert: {
@@ -146,6 +147,7 @@ export type Database = {
                     type: 'video' | 'design' | 'campaign'
                     due_date?: string | null
                     responsible_id?: string | null
+                    internal_checklist?: Json | null
                     created_at?: string
                 }
                 Update: {
@@ -158,6 +160,7 @@ export type Database = {
                     type?: 'video' | 'design' | 'campaign'
                     due_date?: string | null
                     responsible_id?: string | null
+                    internal_checklist?: Json | null
                     created_at?: string
                 }
             }

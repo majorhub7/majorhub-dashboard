@@ -127,6 +127,7 @@ export interface Project {
   fullTeam?: TeamMember[];
   documents?: Document[];
   priority?: boolean;
+  inviteCode?: string;
 }
 
 export interface RecentActivity {
@@ -222,7 +223,8 @@ export function mapProjectFromDb(dbProject: DbProjectWithRelations): Project {
     type: g.type,
     dueDate: g.due_date,
     responsibleId: g.responsible_id,
-    description: g.description
+    description: g.description,
+    internalChecklist: g.internal_checklist || []
   }));
 
   const documents = (dbProject.documents || []).map((d: any) => ({
@@ -264,5 +266,6 @@ export function mapProjectFromDb(dbProject: DbProjectWithRelations): Project {
     documents,
     filesCount: documents.length,
     commentsCount: activities.filter((a: any) => a.type === 'comment').length,
+    inviteCode: (dbProject as any).invite_code
   };
 }

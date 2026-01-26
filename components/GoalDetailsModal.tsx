@@ -25,6 +25,8 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
   const [newChecklistItem, setNewChecklistItem] = useState('');
   const [tempDate, setTempDate] = useState(goal.dueDate ? goal.dueDate.split('T')[0] : '');
   const [copied, setCopied] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [tempTitle, setTempTitle] = useState(goal.text);
 
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -82,9 +84,13 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
 
   const confirmDateUpdate = () => {
     if (tempDate) {
-      const newDate = new Date(tempDate);
-      if (!isNaN(newDate.getTime())) {
-        handleMetadataUpdate({ dueDate: newDate.toISOString() });
+      // Parse as UTC midnight to avoid timezone shifts
+      // Input format: "YYYY-MM-DD"
+      const [year, month, day] = tempDate.split('-').map(Number);
+      const utcDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+
+      if (!isNaN(utcDate.getTime())) {
+        handleMetadataUpdate({ dueDate: utcDate.toISOString() });
       }
     } else {
       handleMetadataUpdate({ dueDate: undefined });
@@ -167,80 +173,92 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
               <span className="material-symbols-outlined !text-[20px]">close</span>
             </button>
           </div>
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white leading-tight">
-            {goal.text}
-          </h1>
+          {isEditingTitle ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={tempTitle}
+                onChange={(e) => setTempTitle(e.target.value)}
+                onBlur={async () => {
+                  if (tempTitle.trim() && tempTitle !== goal.text) {
+                    setIsSaving(true);
+                    try {
+                      await onUpdateGoal({ ...goal, text: tempTitle });
+                    } catch (err) {
+                      console.error('Erro ao atualizar título:', err);
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }
+                  setIsEditingTitle(false);
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
+                autoFocus
+                className="flex-1 text-xl md:text-2xl font-bold text-slate-900 dark:text-white leading-tight bg-transparent border-b-2 border-primary focus:outline-none px-2 py-1"
+              />
+            </div>
+          ) : (
+            <h1
+              onClick={() => { setIsEditingTitle(true); setTempTitle(goal.text); }}
+              className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white leading-tight cursor-pointer hover:text-primary transition-colors group"
+            >
+              {goal.text}
+              <span className="ml-2 text-sm text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">✏️</span>
+            </h1>
+          )}
         </header>
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900">
 
           {/* Metadata Grid */}
-          <div className="p-8 space-y-8">
-            <div className="flex items-center justify-between">
-              {/* Responsável Selection */}
-              <div className="relative">
-                <div
-                  className="flex items-center gap-3 cursor-pointer group"
-                  onClick={() => setEditingField(editingField === 'responsible' ? null : 'responsible')}
-                >
-                  <div
-                    className="w-11 h-11 rounded-full bg-center bg-cover border-2 border-white dark:border-gray-800 shadow-sm group-hover:border-primary/30 transition-all"
-                    style={{ backgroundImage: `url(${responsible?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(responsible?.name || 'User')}&background=8b5cf6&color=fff&size=150`})` }}
-                  />
+          <div className="p-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            {/* Status Section */}
+            <div className="relative">
+              <div
+                onClick={() => setEditingField(editingField === 'status' ? null : 'status')}
+                className="h-full flex items-center justify-between p-4 bg-slate-50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${getStatusColor(goal.status).replace('text-white', 'bg-opacity-10 text-current')}`}>
+                    <span className="material-symbols-outlined !text-[18px]">
+                      {goal.status === 'Concluído' ? 'check_circle' :
+                        goal.status === 'Em Andamento' ? 'pending' :
+                          goal.status === 'Em Revisão' ? 'rate_review' : 'schedule'}
+                    </span>
+                  </div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Responsável</span>
-                    <span className="text-sm font-bold text-slate-900 dark:text-white leading-none mt-0.5 flex items-center gap-1">
-                      {responsible?.name || 'Não atribuído'}
-                      <span className="material-symbols-outlined !text-[14px] text-gray-300">expand_more</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Status Atual</span>
+                    <span className={`text-xs font-bold ${goal.status === 'Concluído' ? 'text-emerald-500' :
+                        goal.status === 'Em Andamento' ? 'text-primary' :
+                          goal.status === 'Em Revisão' ? 'text-amber-500' : 'text-slate-500'
+                      }`}>
+                      {goal.status}
                     </span>
                   </div>
                 </div>
-
-                {editingField === 'responsible' && (
-                  <div ref={popoverRef} className="absolute top-full left-0 w-64 mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 p-2 animate-scale-up">
-                    <div className="p-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-50 dark:border-gray-700 mb-2">Selecione o Responsável</div>
-                    {TEAM_MEMBERS.map(member => (
-                      <button
-                        key={member.id}
-                        onClick={() => handleMetadataUpdate({ responsibleId: member.id })}
-                        className="w-full flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors text-left"
-                      >
-                        <img src={member.avatarUrl} className="size-8 rounded-full" alt="" />
-                        <div>
-                          <p className="text-xs font-bold text-slate-700 dark:text-gray-200">{member.name}</p>
-                          <p className="text-[9px] text-gray-400">{member.role}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <span className="material-symbols-outlined text-gray-300">expand_more</span>
               </div>
 
-              {/* Status Section */}
-              <div className="flex flex-col items-end relative">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Status Atual</span>
-                <button
-                  onClick={() => setEditingField(editingField === 'status' ? null : 'status')}
-                  className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter transition-transform active:scale-95 ${getStatusColor(goal.status)}`}
-                >
-                  {goal.status}
-                </button>
-
-                {editingField === 'status' && (
-                  <div ref={popoverRef} className="absolute top-full right-0 w-40 mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 p-2 animate-scale-up">
-                    {['Pendente', 'Em Andamento', 'Em Revisão', 'Concluído'].map(s => (
-                      <button
-                        key={s}
-                        onClick={() => handleMetadataUpdate({ status: s as any })}
-                        className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {editingField === 'status' && (
+                <div ref={popoverRef} className="absolute top-full left-0 w-full mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 p-2 animate-scale-up">
+                  {['Pendente', 'Em Andamento', 'Em Revisão', 'Concluído'].map(s => (
+                    <button
+                      key={s}
+                      onClick={() => handleMetadataUpdate({ status: s as any })}
+                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center justify-between group"
+                    >
+                      <span>{s}</span>
+                      {goal.status === s && <span className="material-symbols-outlined !text-[16px] text-primary">check</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Prazo Card */}
@@ -250,17 +268,20 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
                   setEditingField(editingField === 'date' ? null : 'date');
                   setTempDate(goal.dueDate ? goal.dueDate.split('T')[0] : '');
                 }}
-                className="flex items-center justify-between p-4 bg-slate-50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+                className="h-full flex items-center justify-between p-4 bg-slate-50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-primary/10 rounded-lg text-primary">
                     <span className="material-symbols-outlined !text-[18px]">calendar_month</span>
                   </div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Prazo Final</span>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Prazo Final</span>
+                    <span className="text-xs font-bold text-slate-700 dark:text-gray-300">
+                      {formatDate(goal.dueDate)}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-xs font-bold text-slate-700 dark:text-gray-300">
-                  {formatDate(goal.dueDate)}
-                </span>
+                <span className="material-symbols-outlined text-gray-300">edit_calendar</span>
               </div>
 
               {editingField === 'date' && (
@@ -272,8 +293,8 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
                     onChange={(e) => setTempDate(e.target.value)}
                   />
                   <div className="flex gap-2">
-                    <button onClick={confirmDateUpdate} className="flex-1 bg-primary text-white py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest">Confirmar</button>
-                    <button onClick={() => setEditingField(null)} className="px-4 py-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest">Cancelar</button>
+                    <button onClick={confirmDateUpdate} className="flex-1 bg-primary text-white py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors">Confirmar</button>
+                    <button onClick={() => setEditingField(null)} className="px-4 py-2 text-slate-400 hover:text-slate-600 text-[10px] font-bold uppercase tracking-widest transition-colors">Cancelar</button>
                   </div>
                 </div>
               )}

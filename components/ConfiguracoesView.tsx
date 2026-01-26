@@ -34,37 +34,9 @@ const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
   const [confirmName, setConfirmName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Estado para convite
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [newMemberRole, setNewMemberRole] = useState<Role>('CLIENT');
-  const [generatedInvite, setGeneratedInvite] = useState<{ token: string, link: string } | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleInvite = async () => {
-    if (!selectedClient && currentUser.accessLevel === 'MANAGER') {
-      alert('Selecione um cliente antes de convidar.');
-      return;
-    }
-    setIsGenerating(true);
-    try {
-      const clientId = currentUser.accessLevel === 'MANAGER' ? selectedClient?.id : currentUser.clientId;
-      if (!clientId) throw new Error('Client ID não encontrado');
-      const { data, error } = await (window as any).authScope.createInvitation(clientId, newMemberRole);
-      if (error) throw error;
-      if (data) {
-        const baseUrl = window.location.origin;
-        setGeneratedInvite({
-          token: data.token,
-          link: `${baseUrl}/?token=${data.token}`
-        });
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao gerar convite.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+
+
 
   const Toggle = ({ active, onToggle }: { active: boolean, onToggle: () => void }) => (
     <button
@@ -91,17 +63,7 @@ const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
             </div>
             <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">Membros & Acessos</h3>
           </div>
-          <button
-            onClick={() => {
-              if (currentUser.accessLevel === 'CLIENT') setNewMemberRole('CLIENT');
-              setGeneratedInvite(null);
-              setShowInviteModal(true);
-            }}
-            className="bg-primary text-white px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95 transition-all flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined !text-[16px]">person_add</span>
-            Convidar novo membro
-          </button>
+
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -300,43 +262,7 @@ const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
         </section>
       )}
 
-      {/* MODAL DE CONVITE */}
-      {showInviteModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 animate-fade-in">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowInviteModal(false)} />
-          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-2xl border border-slate-100 dark:border-slate-800 animate-scale-up">
-            <h4 className="text-xl font-black text-slate-900 dark:text-white mb-6">Criar Convite</h4>
-            {!generatedInvite ? (
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Função do Convidado</label>
-                  <select
-                    value={newMemberRole}
-                    onChange={(e) => setNewMemberRole(e.target.value as Role)}
-                    disabled={currentUser.accessLevel === 'CLIENT'}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 dark:text-white"
-                  >
-                    <option value="CLIENT">Cliente</option>
-                    {currentUser.accessLevel === 'MANAGER' && <option value="MANAGER">Gestor</option>}
-                  </select>
-                </div>
-                <button onClick={handleInvite} disabled={isGenerating} className="w-full bg-primary text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20">{isGenerating ? 'Gerando...' : 'Gerar Link'}</button>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700">
-                  <label className="text-[10px] font-black text-slate-400 uppercase block mb-3">Link de Registro</label>
-                  <div className="flex items-center gap-2">
-                    <input readOnly value={generatedInvite.link} className="flex-1 bg-transparent border-none text-[10px] font-bold text-primary truncate outline-none" />
-                    <button onClick={() => { navigator.clipboard.writeText(generatedInvite.link); alert('Copiado!'); }} className="p-2 hover:bg-primary/10 rounded-lg text-primary"><span className="material-symbols-outlined !text-[18px]">content_copy</span></button>
-                  </div>
-                </div>
-                <button onClick={() => setShowInviteModal(false)} className="w-full py-4 text-slate-400 font-black uppercase text-[10px]">Fechar</button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+
 
       {/* MODAL DE EXCLUSÃO DE MEMBRO */}
       {memberToDelete && (

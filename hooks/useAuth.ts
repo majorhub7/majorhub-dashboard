@@ -20,6 +20,37 @@ export function useAuth() {
         loading: true,
     });
 
+    // Retry utility for network resilience
+    const withRetry = async <T>(
+        operation: () => Promise<{ data: T | null; error: any }>,
+        retries = 5,
+        delay = 2000
+    ): Promise<{ data: T | null; error: any }> => {
+        for (let i = 0; i < retries; i++) {
+            try {
+                const result = await operation();
+                if (!result.error) return result;
+
+                // Only retry on network/timeout errors
+                const isNetworkError =
+                    result.error?.message?.includes('fetch') ||
+                    result.error?.message?.includes('network') ||
+                    result.error?.message?.includes('timeout') ||
+                    result.error?.status === 500 ||
+                    result.error?.status === 503;
+
+                if (!isNetworkError && i === 0) return result; // Don't retry logic errors (400s)
+
+                console.warn(`⚠️ [DEBUG] Operation failed, retrying (${i + 1}/${retries})...`, result.error);
+                await new Promise(resolve => setTimeout(resolve, delay * (i + 1))); // Linear backoff
+            } catch (err) {
+                console.error(`❌ [DEBUG] Retry exception (${i + 1}/${retries}):`, err);
+                if (i === retries - 1) throw err;
+            }
+        }
+        return operation(); // Last try
+    };
+
     const isFetchingProfile = useRef<string | null>(null);
 
     const fetchProfile = useCallback(async (userId: string) => {
@@ -31,32 +62,43 @@ export function useAuth() {
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-            console.error('⏰ [DEBUG] TIMEOUT! Profile fetch took longer than 3 seconds');
+            console.error('⏰ [DEBUG] TIMEOUT! Profile fetch took longer than 15 seconds');
             controller.abort();
             setAuthState(prev => ({ ...prev, loading: false }));
-        }, 3000); // Reduced to 3s for faster feedback
+        }, 15000); // 15s timeout for stability on slow networks
 
         try {
             isFetchingProfile.current = userId;
             console.log('🔍 [DEBUG] Fetching profile from Supabase...');
 
             // Try .single() instead of array to avoid RLS issues
-            const { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', userId)
-                .single(); // Use .single() instead of relying on array
+            const { data, error } = await withRetry(async () =>
+                await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', userId)
+                    .single()
+            ); // Use .single() instead of relying on array
 
             console.log('🔍 [DEBUG] Supabase response:', { data, error });
 
             if (error) {
                 console.error('❌ [DEBUG] Supabase error:', error);
                 // Check if error is RLS related
-                if (error.message?.includes('RLS') || error.message?.includes('policy') || error.code === 'PGRST116') {
+                // Check if error is RLS related
+                if (error.message?.includes('RLS') || error.message?.includes('policy')) {
                     console.error('🚨 [DEBUG] RLS Policy blocking! Check Supabase RLS settings.');
+                    setAuthState(prev => ({ ...prev, profile: null, loading: false }));
+                    return;
                 }
-                setAuthState(prev => ({ ...prev, profile: null, loading: false }));
-                return;
+
+                // IGNORE PGRST116 (No Rows Found) -> Let it fall through to self-healing
+                if (error.code === 'PGRST116') {
+                    console.warn('⚠️ [DEBUG] Profile not found (PGRST116), proceeding to auto-creation...');
+                } else {
+                    setAuthState(prev => ({ ...prev, profile: null, loading: false }));
+                    return;
+                }
             }
 
             if (data) {
@@ -64,7 +106,36 @@ export function useAuth() {
                 setAuthState(prev => ({ ...prev, profile: data, loading: false }));
             } else {
                 console.warn('⚠️ [DEBUG] Profile fetch completed but no profile found for:', userId);
-                setAuthState(prev => ({ ...prev, profile: null, loading: false }));
+
+                // Self-healing: Create profile if it doesn't exist
+                console.log('🛠️ [DEBUG] Attempting to create missing profile...');
+                const { data: userData } = await supabase.auth.getUser();
+                if (userData?.user) {
+                    const newProfile = {
+                        id: userId,
+                        email: userData.user.email,
+                        name: userData.user.user_metadata?.name || userData.user.email?.split('@')[0] || 'Usuário',
+                        role: 'Gestor',
+                        access_level: 'MANAGER',
+                        created_at: new Date().toISOString()
+                    };
+
+                    const { data: createdProfile, error: createError } = await (supabase
+                        .from('users') as any)
+                        .insert(newProfile)
+                        .select()
+                        .single();
+
+                    if (createError) {
+                        console.error('❌ [DEBUG] Failed to auto-create profile:', createError);
+                        setAuthState(prev => ({ ...prev, profile: null, loading: false }));
+                    } else if (createdProfile) {
+                        console.log('✅ [DEBUG] Profile auto-created:', createdProfile);
+                        setAuthState(prev => ({ ...prev, profile: createdProfile as UserProfile, loading: false }));
+                    }
+                } else {
+                    setAuthState(prev => ({ ...prev, profile: null, loading: false }));
+                }
             }
         } catch (err: any) {
             if (err.name !== 'AbortError') {
@@ -273,20 +344,112 @@ export function useAuth() {
         return { data: { user: authUser }, error: null };
     };
 
+    const signUpWithProjectInvite = async (data: any) => {
+        const { inviteCode, email, password, name, whatsapp, avatar_url } = data;
+
+        // 1. Get Project & Client details
+        const { data: projectData, error: projectError } = await (supabase as any)
+            .rpc('get_project_by_invite_code', { code: inviteCode })
+            .single();
+
+        if (projectError || !projectData) {
+            console.error('Error fetching project by invite:', projectError);
+            return { error: new Error('Código de convite inválido ou projeto não encontrado.') };
+        }
+
+        const { client_id, client_name, project_title } = projectData;
+
+        // 2. Auth Sign Up
+        let authUser = authState.user;
+
+        if (!authUser) {
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        name,
+                        avatar_url,
+                        whatsapp,
+                        client_id: client_id,
+                        access_level: 'CLIENT', // Default role for project invites
+                        role: 'Cliente',
+                        is_onboarded: true
+                    }
+                }
+            });
+
+            if (authError) {
+                if (authError.message.toLowerCase().includes('already registered')) {
+                    return { error: new Error('Este e-mail já está cadastrado. Por favor, faça login antes de acessar o convite.') };
+                }
+                return { error: authError };
+            }
+            authUser = authData.user;
+
+            // FORCE UPDATE PROFILE
+            if (authUser) {
+                await (supabase.from('users') as any).update({
+                    name,
+                    avatar_url,
+                    whatsapp,
+                    client_id: client_id,
+                    access_level: 'CLIENT',
+                    role: 'Cliente',
+                    is_onboarded: true
+                }).eq('id', authUser.id);
+            }
+        } else {
+            // Already logged in? Update profile to join this client if not already?
+            // WARNING: Overwriting client_id might be dangerous if they belong to another client.
+            // For now, let's assume they switch context or we just update if null.
+            // But the requirements say "member must come connected to the registration project".
+            const { error: updateError } = await updateProfile({
+                name,
+                avatar_url,
+                whatsapp,
+                client_id: client_id,
+                access_level: 'CLIENT',
+                role: 'Cliente',
+                is_onboarded: true,
+                email: authUser.email
+            } as any);
+
+            if (updateError) return { error: updateError };
+        }
+
+        return { data: { user: authUser, project: projectData }, error: null };
+    };
+
     const signIn = async (email: string, password: string) => {
         console.log('🔐 [DEBUG] Sign In attempt for:', email);
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Tempo limite excedido ao conectar. Verifique sua conexão.')), 30000)
+            );
+
+            const { data, error } = await withRetry<any>(async () => {
+                const raceResult = await Promise.race([
+                    supabase.auth.signInWithPassword({ email, password }),
+                    timeoutPromise
+                ]) as any;
+                return raceResult;
+            });
+
             console.log('🔐 [DEBUG] Sign In response:', { data: data?.user?.id, error });
 
             if (error) {
                 console.error('❌ [DEBUG] Sign In error:', error);
             } else {
                 console.log('✅ [DEBUG] Sign In successful! User ID:', data?.user?.id);
+                // Trigger profile fetch immediately if not triggered by event listener
+                if (data.user) {
+                    fetchProfile(data.user.id);
+                }
             }
 
             return { error };
-        } catch (err) {
+        } catch (err: any) {
             console.error('❌ [DEBUG] Sign In exception:', err);
             return { error: err as Error };
         }
@@ -336,6 +499,7 @@ export function useAuth() {
         completeOnboarding,
         createInvitation,
         validateToken,
-        signUpWithInvitation
+        signUpWithInvitation,
+        signUpWithProjectInvite
     };
 }

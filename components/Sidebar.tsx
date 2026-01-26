@@ -10,6 +10,7 @@ interface SidebarProps {
   onClose: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  onLogout: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -19,7 +20,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
   isCollapsed = false,
-  onToggleCollapse
+  onToggleCollapse,
+  onLogout
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'space_dashboard' },
@@ -139,8 +141,16 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
           </div>
+
+          <button
+            onClick={onLogout}
+            className="w-full mt-2 flex items-center justify-center gap-2 p-3 rounded-lg border border-slate-100 dark:border-slate-800 text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all text-xs font-bold uppercase tracking-widest group"
+          >
+            <span className="material-symbols-outlined !text-[18px] group-hover:scale-110 transition-transform">logout</span>
+            {!isCollapsed && <span>Sair da Conta</span>}
+          </button>
         </div>
-      </aside>
+      </aside >
     </>
   );
 };
