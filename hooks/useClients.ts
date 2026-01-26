@@ -43,11 +43,14 @@ export function useClients(userId?: string | null) {
 
 
     const createClient = async (name: string, logoUrl?: string) => {
+        if (!userId) throw new Error('User not authenticated');
+
         const { data, error } = await supabase
             .from('clients')
             .insert({
                 name,
-                logo_url: logoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8b5cf6&color=fff&size=150`
+                logo_url: logoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8b5cf6&color=fff&size=150`,
+                created_by: userId
             } as any)
             .select()
             .single();
