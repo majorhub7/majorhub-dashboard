@@ -51,13 +51,13 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, 
         } else if (clientInvite) {
             // New Flow: Client Invitation (requires variable)
             try {
-                const { data, error } = await supabase
-                    .from('clients')
-                    .select('id, name, logo_url')
-                    .eq('id', clientInvite)
+                // Use RPC to bypass RLS for public info
+                const { data, error } = await (supabase as any)
+                    .rpc('get_client_public_info', { client_id: clientInvite })
                     .single();
 
                 if (error || !data) {
+                    console.error('Client invite error:', error);
                     setScreen('invalid');
                 } else {
                     setInviteData({
@@ -69,6 +69,7 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, 
                     setScreen('welcome');
                 }
             } catch (err) {
+                console.error('Client invite exception:', err);
                 setScreen('invalid');
             }
         } else if (token) {
