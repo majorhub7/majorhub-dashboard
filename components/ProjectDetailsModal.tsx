@@ -333,14 +333,54 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
     return 'text-4xl md:text-6xl';
   };
 
+  // Swipe to close logic
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartY = useRef(0);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    dragStartY.current = e.touches[0].clientY;
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - dragStartY.current;
+
+    // Only allow dragging down
+    if (diff > 0) {
+      setDragY(diff);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    if (dragY > 150) { // Threshold to close
+      onClose();
+    } else {
+      setDragY(0); // Reset position
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center animate-fade-in">
       <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose} />
 
-      <div className={`relative w-full ${showChatPanel ? 'max-w-[1200px]' : 'max-w-[800px]'} h-[95vh] md:h-[90vh] bg-white dark:bg-slate-950 rounded-t-[2.5rem] md:rounded-[3rem] overflow-hidden flex flex-col md:flex-row animate-slide-up border border-slate-200 dark:border-slate-800 transition-all duration-500 ease-in-out`}>
+      <div
+        ref={modalRef}
+        style={{ transform: `translateY(${dragY}px)`, transition: isDragging ? 'none' : 'transform 0.3s ease-out' }}
+        className={`relative w-full ${showChatPanel ? 'max-w-[1200px]' : 'max-w-[800px]'} h-[95vh] md:h-[90vh] bg-white dark:bg-slate-950 rounded-t-[2.5rem] md:rounded-[3rem] overflow-hidden flex flex-col md:flex-row animate-slide-up border border-slate-200 dark:border-slate-800 touch-none`}
+      >
 
         {/* Indicador para Abaixar (Mobile Handle) */}
-        <div className="md:hidden flex justify-center pt-4 pb-2 shrink-0 bg-white dark:bg-slate-950">
+        <div
+          className="md:hidden flex justify-center pt-4 pb-2 shrink-0 bg-white dark:bg-slate-950 cursor-grab active:cursor-grabbing"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full" />
         </div>
 

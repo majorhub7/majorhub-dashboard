@@ -126,7 +126,7 @@ const MeusProjetosView: React.FC<MeusProjetosViewProps> = ({
   };
 
   return (
-    <div className="space-y-12 animate-fade-in relative pb-20">
+    <div className="space-y-12 animate-fade-in relative pb-32">
       {/* Goal Warning Modal */}
       {showGoalWarning && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fade-in">
@@ -165,8 +165,8 @@ const MeusProjetosView: React.FC<MeusProjetosViewProps> = ({
               key={delivery.id}
               onClick={() => onSelectProject(projects.find(p => p.id === delivery.projectId)!)}
               className={`flex-none w-[220px] px-4 py-3 rounded-lg border-l-4 transition-all cursor-pointer group hover-lift ${delivery.isLate
-                  ? 'border-l-accent-coral bg-accent-coral/5 dark:bg-accent-coral/10'
-                  : 'border-l-primary bg-slate-50 dark:bg-surface-dark'
+                ? 'border-l-accent-coral bg-accent-coral/5 dark:bg-accent-coral/10'
+                : 'border-l-primary bg-slate-50 dark:bg-surface-dark'
                 }`}
             >
               <div className="flex flex-col gap-1.5">

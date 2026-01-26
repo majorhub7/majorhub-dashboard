@@ -404,11 +404,11 @@ const App: React.FC = () => {
 
               {/* Contexto do Cliente Atual */}
               {selectedClient && (
-                <div className="flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 px-4 py-2 rounded-2xl border border-slate-100 dark:border-slate-800 animate-fade-in">
-                  <img src={selectedClient.logoUrl} className="size-6 object-contain filter grayscale" alt="" />
-                  <span className="text-xs font-black text-slate-800 dark:text-slate-200 truncate max-w-[120px]">{selectedClient.name}</span>
+                <div className="flex items-center gap-2 md:gap-4 bg-white/80 dark:bg-slate-900/80 px-2 md:px-4 py-1.5 md:py-2 rounded-2xl border border-slate-100 dark:border-slate-800 animate-fade-in shrink-0">
+                  <img src={selectedClient.logoUrl} className="size-5 md:size-6 object-contain filter grayscale" alt="" />
+                  <span className="text-[10px] md:text-xs font-black text-slate-800 dark:text-slate-200 truncate max-w-[80px] md:max-w-[120px]">{selectedClient.name}</span>
                   {currentUser.accessLevel === 'MANAGER' && (
-                    <button onClick={() => setSelectedClient(null)} className="text-[10px] font-bold text-primary hover:underline">Trocar</button>
+                    <button onClick={() => setSelectedClient(null)} className="text-[9px] md:text-[10px] font-bold text-primary hover:underline">Trocar</button>
                   )}
                 </div>
               )}
@@ -417,13 +417,7 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2 md:gap-6 ml-3">
               {currentUser.accessLevel === 'MANAGER' && (
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsAICreateModalOpen(true)}
-                    className="bg-slate-900 dark:bg-slate-800 text-white p-2.5 md:py-3.5 md:px-6 rounded-full md:rounded-[1.25rem] hover:bg-slate-800 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 group shrink-0 border border-slate-700/50"
-                  >
-                    <span className="material-symbols-outlined !text-[20px] md:!text-[22px] group-hover:rotate-12 transition-transform">psychology</span>
-                    <span className="hidden md:inline font-bold text-sm">Criar com IA</span>
-                  </button>
+
 
                   <button
                     onClick={() => setIsNewProjectModalOpen(true)}
@@ -444,28 +438,9 @@ const App: React.FC = () => {
                 <span className="text-[10px] font-black uppercase tracking-widest">Sair</span>
               </button>
 
-              {/* Notificações */}
-              <NotificationBell
-                unreadCount={unreadCount}
-                onNavigate={(linkType, linkId) => {
-                  // Navegação baseada no tipo de link
-                  if (linkType === 'project') {
-                    setSelectedProjectId(linkId);
-                  } else if (linkType === 'goal') {
-                    // Buscar projeto da meta e abrir modal
-                    const project = projects.find(p =>
-                      p.creative_goals?.some((g: any) => g.id === linkId)
-                    );
-                    if (project) {
-                      setSelectedProjectId(project.id);
-                    }
-                  }
-                }}
-              />
 
-              <button onClick={handleLogout} className="lg:hidden size-11 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-slate-400">
-                <span className="material-symbols-outlined">logout</span>
-              </button>
+
+
             </div>
           </header>
 
