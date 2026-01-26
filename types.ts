@@ -127,7 +127,6 @@ export interface Project {
   fullTeam?: TeamMember[];
   documents?: Document[];
   priority?: boolean;
-  inviteCode?: string;
 }
 
 export interface RecentActivity {
@@ -265,7 +264,6 @@ export function mapProjectFromDb(dbProject: DbProjectWithRelations): Project {
     activities,
     documents,
     filesCount: documents.length,
-    commentsCount: activities.filter((a: any) => a.type === 'comment').length,
-    inviteCode: (dbProject as any).invite_code
+    commentsCount: activities.filter((a: any) => a.type === 'comment').length
   };
 }

@@ -4,6 +4,7 @@ import { User, Project, TeamMember, CreativeGoal, ProjectActivity, Document } fr
 import { TEAM_MEMBERS } from '../constants';
 import GoalDetailsModal from './GoalDetailsModal';
 import { useProjectDetails } from '../hooks/useProjectDetails';
+import { useProjectInvites } from '../hooks/useProjectInvites';
 import RichTextEditor from './RichTextEditor';
 import { marked } from 'marked';
 
@@ -59,6 +60,7 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
 
   // Lazy Load Activities (Performance Logic)
   const { activities: fetchedActivities, loading: activitiesLoading, addLocalActivity } = useProjectDetails(project.id);
+  const { inviteCodes, createInviteCode } = useProjectInvites(project.clientId);
 
   const activities = useMemo(() => {
     // Map DbActivity to ProjectActivity
@@ -456,12 +458,36 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
                     {currentUser.accessLevel === 'MANAGER' && (
                       <div className="flex items-center gap-4 ml-auto">
                         <button
-                          onClick={() => {
-                            const inviteLink = `${window.location.origin}?invite=${project.inviteCode || ''}`;
-                            navigator.clipboard.writeText(inviteLink);
-                            setShowInviteCopied(true);
-                            setTimeout(() => setShowInviteCopied(false), 2000);
-                            logActivity('system', 'copiou o link de convite do projeto', 'link');
+                          onClick={async () => {
+                            let variable = inviteCodes.find(c => c.project_id === project.id);
+
+                            if (!variable) {
+                              // Auto-create a contributor variable if none exists
+                              const prefix = project.title.substring(0, 4).replace(/\s/g, '').toUpperCase() || 'PROJ';
+                              const random = Math.floor(1000 + Math.random() * 9000);
+                              const autoCode = `${prefix}_CONTRIB_${random}`;
+
+                              try {
+                                variable = await createInviteCode({
+                                  client_id: project.clientId,
+                                  project_id: project.id,
+                                  variable_code: autoCode,
+                                  role: 'CONTRIBUTOR'
+                                });
+                              } catch (err) {
+                                console.error('Failed to auto-create invite variable:', err);
+                                alert('Erro ao gerar link de convite. Crie uma variável em Configurações primeiro.');
+                                return;
+                              }
+                            }
+
+                            if (variable) {
+                              const inviteLink = `${window.location.origin}/?client_invite=${project.clientId}&variable=${variable.variable_code}`;
+                              navigator.clipboard.writeText(inviteLink);
+                              setShowInviteCopied(true);
+                              setTimeout(() => setShowInviteCopied(false), 2000);
+                              logActivity('system', 'copiou o link de convite do projeto', 'link');
+                            }
                           }}
                           className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors group/link"
                         >

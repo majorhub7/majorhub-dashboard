@@ -46,25 +46,8 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, 
         setScreen('loading');
 
         if (inviteCode) {
-            // New Flow: Project Invite
-            try {
-                const { data, error } = await (supabase as any)
-                    .rpc('get_project_by_invite_code', { code: inviteCode })
-                    .single();
-
-                if (error || !data) {
-                    setScreen('invalid');
-                } else {
-                    setInviteData({
-                        ...data,
-                        type: 'project_invite',
-                        role: 'CLIENT'
-                    });
-                    setScreen('welcome');
-                }
-            } catch (err) {
-                setScreen('invalid');
-            }
+            // DEPRECATED Flow: Old Project Invite
+            setScreen('invalid');
         } else if (clientInvite) {
             // New Flow: Client Invitation (requires variable)
             try {
