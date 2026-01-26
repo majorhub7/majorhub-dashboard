@@ -134,6 +134,25 @@ const App: React.FC = () => {
     }));
   }, [clients]);
 
+  // Auto-select client for Members/Clients
+  useEffect(() => {
+    if (currentUser?.clientId && !selectedClient && !clientsLoading) {
+      // Tentar encontrar o cliente na lista carregada
+      const userClient = clients.find(c => c.id === currentUser.clientId);
+
+      if (userClient) {
+        setSelectedClient({
+          id: userClient.id,
+          name: userClient.name,
+          logoUrl: userClient.logo_url || '',
+          projectsCount: 0,
+          activeDeliveries: 0,
+          lastActivity: 'Hoje'
+        });
+      }
+    }
+  }, [currentUser, clients, selectedClient, clientsLoading]);
+
   const mappedProjects = useMemo(() => {
     return projects.map(mapProjectFromDb);
   }, [projects]);
