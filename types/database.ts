@@ -329,6 +329,76 @@ export type Database = {
                     expires_at?: string
                 }
             }
+            notifications: {
+                Row: {
+                    id: string
+                    user_id: string
+                    client_id: string | null
+                    type: 'deadline' | 'mention' | 'project_created' | 'status_changed' | 'goal_completed'
+                    title: string
+                    message: string
+                    link_type: 'project' | 'goal' | 'comment' | null
+                    link_id: string | null
+                    read_at: string | null
+                    created_at: string
+                    metadata: Json
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    client_id?: string | null
+                    type: 'deadline' | 'mention' | 'project_created' | 'status_changed' | 'goal_completed'
+                    title: string
+                    message: string
+                    link_type?: 'project' | 'goal' | 'comment' | null
+                    link_id?: string | null
+                    read_at?: string | null
+                    created_at?: string
+                    metadata?: Json
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    client_id?: string | null
+                    type?: 'deadline' | 'mention' | 'project_created' | 'status_changed' | 'goal_completed'
+                    title?: string
+                    message?: string
+                    link_type?: 'project' | 'goal' | 'comment' | null
+                    link_id?: string | null
+                    read_at?: string | null
+                    created_at?: string
+                    metadata?: Json
+                }
+            }
+            notification_preferences: {
+                Row: {
+                    user_id: string
+                    in_app_enabled: boolean
+                    notify_deadlines: boolean
+                    notify_mentions: boolean
+                    notify_project_updates: boolean
+                    notify_goal_completed: boolean
+                    updated_at: string
+                }
+                Insert: {
+                    user_id: string
+                    in_app_enabled?: boolean
+                    notify_deadlines?: boolean
+                    notify_mentions?: boolean
+                    notify_project_updates?: boolean
+                    notify_goal_completed?: boolean
+                    updated_at?: string
+                }
+                Update: {
+                    user_id?: string
+                    in_app_enabled?: boolean
+                    notify_deadlines?: boolean
+                    notify_mentions?: boolean
+                    notify_project_updates?: boolean
+                    notify_goal_completed?: boolean
+                    updated_at?: string
+                }
+            }
         }
         Views: {
             [_ in never]: never

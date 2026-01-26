@@ -126,22 +126,22 @@ const MeusProjetosView: React.FC<MeusProjetosViewProps> = ({
   };
 
   return (
-    <div className="space-y-16 animate-fade-in relative pb-20">
+    <div className="space-y-12 animate-fade-in relative pb-20">
       {/* Goal Warning Modal */}
       {showGoalWarning && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fade-in">
-          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={() => setShowGoalWarning(false)} />
-          <div className="relative bg-white dark:bg-slate-900 p-10 max-w-sm w-full shadow-2xl border-4 border-amber-500/20" style={{ borderRadius: '8px' }}>
-            <div className="size-12 bg-amber-500 text-white flex items-center justify-center mb-6 mx-auto shadow-lg shadow-amber-500/20">
-              <span className="material-symbols-outlined !text-[28px] !font-black">warning</span>
+          <div className="absolute inset-0 bg-surface-dark/70 backdrop-blur-sm" onClick={() => setShowGoalWarning(false)} />
+          <div className="relative bg-white dark:bg-surface-elevated-dark p-8 max-w-sm w-full shadow-depth-lg rounded-xl border border-accent-gold/30">
+            <div className="size-14 bg-gradient-to-br from-accent-gold to-accent-coral text-white rounded-xl flex items-center justify-center mb-6 mx-auto shadow-glow-sm">
+              <span className="material-symbols-outlined !text-[28px]">warning</span>
             </div>
-            <h4 className="text-xl font-black text-slate-900 dark:text-white text-center mb-3 uppercase tracking-tighter">Fluxo Interrompido</h4>
-            <p className="text-slate-500 dark:text-slate-400 text-center text-[11px] font-bold uppercase tracking-widest leading-relaxed mb-8">
+            <h4 className="text-lg font-bold text-slate-900 dark:text-white text-center mb-3">Fluxo Interrompido</h4>
+            <p className="text-slate-500 dark:text-slate-400 text-center text-sm leading-relaxed mb-6">
               Existem objetivos críticos pendentes. Finalize o fluxo técnico antes da entrega final.
             </p>
             <button
               onClick={() => setShowGoalWarning(false)}
-              className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-5 text-[10px] font-black uppercase tracking-[0.25em] hover:bg-primary hover:text-white transition-all active:scale-95"
+              className="w-full bg-primary text-white py-3.5 text-sm font-bold rounded-lg hover:bg-primary-dark transition-all active:scale-[0.98] btn-glow"
             >
               Ok, Entendi
             </button>
@@ -149,43 +149,44 @@ const MeusProjetosView: React.FC<MeusProjetosViewProps> = ({
         </div>
       )}
 
-      {/* Persistent Deliveries Fragment */}
-      <section className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800/80 p-8" style={{ borderRadius: '8px' }}>
-        <div className="flex items-center gap-4 mb-8">
-          <div className="size-1.5 bg-acid-green rounded-full" />
-          <h3 className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-[0.4em]">Próximas Entregas</h3>
+      {/* Upcoming Deliveries Section */}
+      <section className="bg-white dark:bg-surface-elevated-dark border border-border-subtle dark:border-border-subtle-dark p-6 rounded-xl">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="size-2 rounded-full bg-accent-mint glow-pulse" />
+          <h3 className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Próximas Entregas</h3>
         </div>
 
         <div
           ref={deliveriesCarouselRef}
-          className="flex overflow-x-auto gap-4 no-scrollbar scroll-smooth"
+          className="flex overflow-x-auto gap-3 no-scrollbar scroll-smooth stagger-reveal"
         >
           {upcomingDeliveries.map((delivery) => (
             <div
               key={delivery.id}
               onClick={() => onSelectProject(projects.find(p => p.id === delivery.projectId)!)}
-              className={`flex-none w-[240px] px-5 py-4 bg-slate-50 dark:bg-slate-950 border-t-4 transition-all cursor-pointer group ${delivery.isLate ? 'border-rose-500 bg-rose-50/20' : 'border-primary'
+              className={`flex-none w-[220px] px-4 py-3 rounded-lg border-l-4 transition-all cursor-pointer group hover-lift ${delivery.isLate
+                  ? 'border-l-accent-coral bg-accent-coral/5 dark:bg-accent-coral/10'
+                  : 'border-l-primary bg-slate-50 dark:bg-surface-dark'
                 }`}
-              style={{ borderRadius: '4px' }}
             >
-              <div className="flex flex-col gap-2">
-                <span className={`text-[8px] font-black uppercase tracking-widest ${delivery.isLate ? 'text-rose-500' : 'text-slate-400'}`}>
-                  {delivery.date} {delivery.isLate && '• ATRASADO'}
+              <div className="flex flex-col gap-1.5">
+                <span className={`text-[9px] font-bold uppercase tracking-wider ${delivery.isLate ? 'text-accent-coral' : 'text-slate-400'}`}>
+                  {delivery.date} {delivery.isLate && '• Atrasado'}
                 </span>
-                <h4 className="text-[12px] font-black text-slate-900 dark:text-white truncate group-hover:text-primary transition-colors">
+                <h4 className="text-[13px] font-semibold text-slate-800 dark:text-white truncate group-hover:text-primary transition-colors">
                   {delivery.title}
                 </h4>
               </div>
             </div>
           ))}
           {upcomingDeliveries.length === 0 && (
-            <p className="text-[10px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-widest py-2">Nenhuma entrega no radar</p>
+            <p className="text-xs text-slate-400 py-3">Nenhuma entrega no radar</p>
           )}
         </div>
       </section>
 
       {/* Project Lists by Status */}
-      <div className="space-y-20">
+      <div className="space-y-14">
         {(['In Progress', 'Revision', 'Completed'] as const).map((status, idx) => {
           const projectsInStatus = groupedProjects[status];
           const isTarget = dragOverStatus === status;

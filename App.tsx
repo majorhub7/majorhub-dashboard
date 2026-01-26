@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import ProjectCard from './components/ProjectCard';
 import LoginView from './components/LoginView';
 import ErrorBoundary from './components/ErrorBoundary';
+import NotificationBell from './components/NotificationBell';
 
 import { geminiService } from './services/gemini';
 
@@ -30,6 +31,7 @@ import { useAuth } from './hooks/useAuth';
 import { useProjects } from './hooks/useProjects';
 import { useClients } from './hooks/useClients';
 import { useMembers } from './hooks/useMembers';
+import { useNotifications } from './hooks/useNotifications';
 
 const LoadingFallback = () => (
   <div className="flex-1 flex items-center justify-center p-20 animate-fade-in">
@@ -46,6 +48,7 @@ const App: React.FC = () => {
     profile,
     loading: authLoading,
     signIn,
+    signUp,
     signOut,
     updateProfile,
     completeOnboarding,
@@ -74,6 +77,9 @@ const App: React.FC = () => {
   } = useProjects(selectedClient?.id ?? null);
 
   const { members, deleteMember } = useMembers(selectedClient?.id ?? null);
+
+  // Hook de notificações
+  const { unreadCount } = useNotifications(user?.id);
 
   // Estados de UI
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -213,7 +219,7 @@ const App: React.FC = () => {
       if (!selectedClient) throw new Error('Cliente não selecionado');
 
       // 1. Criar Projeto
-      const project = await createProject({
+      const project = (await createProject({
         client_id: selectedClient.id,
         title: projectData.title,
         description: projectData.description,
@@ -221,7 +227,7 @@ const App: React.FC = () => {
         status: 'In Progress',
         progress: 0,
         priority: false
-      });
+      })) as any;
 
       if (!project) throw new Error('Falha ao criar projeto');
 
@@ -342,7 +348,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (!user || !profile || !currentUser) return <LoginView onLogin={handleLogin} />;
+  if (!user || !profile || !currentUser) return <LoginView onLogin={handleLogin} onSignUp={signUp} />;
 
   // Se for CLIENT e não concluiu o onboarding, mostra a OnboardingView
   if (currentUser.accessLevel === 'CLIENT' && !currentUser.isOnboarded) {
@@ -396,21 +402,14 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className="flex h-screen overflow-hidden bg-background-light dark:bg-slate-950">
-        <Sidebar
-          user={currentUser}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        />
+
 
         <main className={`flex-1 flex flex-col overflow-y-auto custom-scrollbar transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'lg:ml-0' : 'lg:ml-72'}`}>
           <header className="pt-4 md:pt-10 pb-4 md:pb-6 flex items-center justify-between px-4 md:px-12 sticky top-0 z-30 bg-gradient-to-b from-background-light via-background-light/95 to-transparent dark:from-slate-950 dark:via-slate-950/95 dark:to-transparent backdrop-blur-md">
             <div className="flex items-center gap-3 md:gap-6 flex-1 min-w-0">
               {isSidebarCollapsed && (
                 <button
+                  type="button"
                   onClick={() => setIsSidebarCollapsed(false)}
                   className="hidden lg:flex p-2.5 text-primary hover:bg-white dark:hover:bg-slate-900 rounded-xl transition-all shadow-sm border border-slate-100 dark:border-slate-800 shrink-0"
                 >
@@ -467,12 +466,24 @@ const App: React.FC = () => {
                 <span className="text-[10px] font-black uppercase tracking-widest">Sair</span>
               </button>
 
-              <div className="relative shrink-0">
-                <button className="text-slate-500 hover:text-primary transition-colors p-2.5 bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-800 rounded-full md:rounded-2xl">
-                  <span className="material-symbols-outlined !text-[20px] md:!text-[22px]">notifications</span>
-                </button>
-                <span className="absolute top-2.5 right-2.5 size-2 bg-rose-500 rounded-full border-2 border-background-light dark:border-slate-950"></span>
-              </div>
+              {/* Notificações */}
+              <NotificationBell
+                unreadCount={unreadCount}
+                onNavigate={(linkType, linkId) => {
+                  // Navegação baseada no tipo de link
+                  if (linkType === 'project') {
+                    setSelectedProjectId(linkId);
+                  } else if (linkType === 'goal') {
+                    // Buscar projeto da meta e abrir modal
+                    const project = projects.find(p =>
+                      p.creative_goals?.some((g: any) => g.id === linkId)
+                    );
+                    if (project) {
+                      setSelectedProjectId(project.id);
+                    }
+                  }
+                }}
+              />
 
               <button onClick={handleLogout} className="lg:hidden size-11 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-slate-400">
                 <span className="material-symbols-outlined">logout</span>
@@ -484,33 +495,38 @@ const App: React.FC = () => {
             <React.Suspense fallback={<LoadingFallback />}>
               {activeTab === 'dashboard' && (
                 <>
-                  <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                  {/* Dashboard Header */}
+                  <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 animate-fade-in">
                     <div>
-                      <h2 className="text-2xl md:text-5xl font-extrabold tracking-tight mb-2 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-slate-700 to-slate-400 dark:from-white dark:to-slate-500">
+                      <h2 className="text-2xl md:text-5xl font-extrabold tracking-tight mb-2 text-gradient">
                         Dashboard {selectedClient?.name}
                       </h2>
-                      <p className="text-slate-400 text-xs md:text-lg font-medium">Seu fluxo criativo está pronto para hoje.</p>
+                      <p className="text-slate-400 text-xs md:text-base font-medium">Seu fluxo criativo está pronto para hoje.</p>
                     </div>
                   </div>
 
-                  <div className="mb-10 md:mb-20">
-                    <h3 className="text-[11px] md:text-xl font-bold flex items-center gap-2 text-slate-500 md:text-slate-900 dark:md:text-white uppercase mb-8">
-                      <span className="material-symbols-outlined text-primary">calendar_month</span>
-                      Próximas Entregas
-                    </h3>
+                  {/* Upcoming Deliveries Section */}
+                  <div className="mb-10 md:mb-16">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="size-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <span className="material-symbols-outlined text-primary !text-[18px]">calendar_month</span>
+                      </div>
+                      <h3 className="text-sm md:text-base font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                        Próximas Entregas
+                      </h3>
+                    </div>
 
-                    <div ref={carouselRef} className="flex overflow-x-auto gap-6 pb-10 no-scrollbar scroll-smooth touch-pan-x">
+                    <div ref={carouselRef} className="flex overflow-x-auto gap-4 pb-6 no-scrollbar scroll-smooth touch-pan-x stagger-reveal">
                       {projectsLoading ? (
-                        // Loading skeleton simples
                         Array.from({ length: 3 }).map((_, i) => (
                           <div
                             key={i}
-                            className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border-2 border-slate-100 dark:border-slate-800 flex items-center gap-6 shrink-0 w-[320px] animate-pulse"
+                            className="bg-white dark:bg-surface-elevated-dark p-6 rounded-lg border border-border-subtle dark:border-border-subtle-dark flex items-center gap-4 shrink-0 w-[280px] animate-pulse"
                           >
-                            <div className="size-3 rounded-full shrink-0 bg-slate-200 dark:bg-slate-700" />
-                            <div className="flex-1 space-y-3">
-                              <div className="h-2 w-16 bg-slate-200 dark:bg-slate-700 rounded" />
-                              <div className="h-4 w-full bg-slate-200 dark:bg-slate-700 rounded" />
+                            <div className="size-2.5 rounded-full shrink-0 bg-slate-200 dark:bg-slate-700" />
+                            <div className="flex-1 space-y-2">
+                              <div className="h-2 w-12 bg-slate-200 dark:bg-slate-700 rounded" />
+                              <div className="h-3.5 w-full bg-slate-200 dark:bg-slate-700 rounded" />
                             </div>
                           </div>
                         ))
@@ -522,35 +538,43 @@ const App: React.FC = () => {
                               const project = projects.find(p => p.id === delivery.projectId);
                               if (project) setSelectedProjectId(project.id);
                             }}
-                            className={`bg-white dark:bg-slate-900 p-8 rounded-[2rem] border-2 flex items-center gap-6 group hover:shadow-xl transition-all duration-500 cursor-pointer shrink-0 w-[320px] ${delivery.isLate ? 'border-rose-500/20' : 'border-slate-100 dark:border-slate-800'}`}
+                            className={`bg-white dark:bg-surface-elevated-dark p-5 rounded-lg border-l-4 flex items-center gap-4 group hover:shadow-depth transition-all duration-300 cursor-pointer shrink-0 w-[280px] hover-lift ${delivery.isLate
+                              ? 'border-l-accent-coral bg-accent-coral/5'
+                              : 'border-l-primary'
+                              }`}
                           >
-                            <div className={`size-3 rounded-full shrink-0 ${delivery.isLate ? 'bg-rose-500 animate-pulse' : 'bg-primary'}`} />
+                            <div className={`size-2.5 rounded-full shrink-0 ${delivery.isLate ? 'bg-accent-coral animate-pulse' : 'bg-primary glow-pulse'}`} />
                             <div className="flex-1 overflow-hidden">
-                              <div className="flex items-center justify-between mb-2">
-                                <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${delivery.isLate ? 'text-rose-500' : 'text-slate-400'}`}>
-                                  {delivery.date}
-                                </p>
-                              </div>
-                              <p className="text-base font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-primary transition-colors">{delivery.title}</p>
+                              <p className={`text-[9px] font-bold uppercase tracking-[0.15em] mb-1 ${delivery.isLate ? 'text-accent-coral' : 'text-slate-400'}`}>
+                                {delivery.date} {delivery.isLate && '• Atrasado'}
+                              </p>
+                              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate group-hover:text-primary transition-colors">{delivery.title}</p>
                             </div>
                           </div>
                         ))
                       ) : (
-                        <div className="py-10 text-slate-400 italic text-sm">Nenhuma entrega próxima.</div>
+                        <div className="py-8 px-6 text-slate-400 text-sm bg-slate-50 dark:bg-surface-dark rounded-lg border border-dashed border-border-subtle dark:border-border-subtle-dark">
+                          <span className="material-symbols-outlined !text-[20px] mr-2 opacity-50">event_available</span>
+                          Nenhuma entrega próxima.
+                        </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="mb-10 flex items-center justify-between">
-                    <h3 className="text-lg md:text-3xl font-bold flex items-center gap-3">
-                      <span className="size-2 rounded-full bg-primary" />
-                      Projetos em Foco
-                    </h3>
+                  {/* Projects Section */}
+                  <div className="mb-8 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="size-2 rounded-full bg-primary glow-pulse" />
+                      <h3 className="text-lg md:text-2xl font-bold text-slate-800 dark:text-white">
+                        Projetos em Foco
+                      </h3>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 stagger-reveal">
                     {projectsLoading ? (
                       Array.from({ length: 3 }).map((_, i) => (
-                        <div key={i} className="h-[400px] bg-slate-100 dark:bg-slate-900 rounded-[2rem] animate-pulse border border-slate-200 dark:border-slate-800" />
+                        <div key={i} className="h-[340px] bg-slate-50 dark:bg-surface-dark rounded-lg animate-pulse border border-border-subtle dark:border-border-subtle-dark" />
                       ))
                     ) : filteredProjects.map((project) => (
                       <ProjectCard
@@ -560,11 +584,15 @@ const App: React.FC = () => {
                       />
                     ))}
                     {!projectsLoading && filteredProjects.length === 0 && (
-                      <div className="col-span-full py-20 bg-white/50 dark:bg-slate-900/50 rounded-[3rem] border-2 border-dashed border-slate-100 dark:border-slate-800 flex flex-col items-center justify-center text-slate-400 gap-4">
-                        <span className="material-symbols-outlined !text-[48px] opacity-20">folder_open</span>
-                        <p className="text-sm font-bold uppercase tracking-widest">Nenhum projeto encontrado para este cliente</p>
+                      <div className="col-span-full py-16 bg-white dark:bg-surface-elevated-dark rounded-xl border-2 border-dashed border-border-subtle dark:border-border-subtle-dark flex flex-col items-center justify-center text-slate-400 gap-4">
+                        <div className="size-16 bg-slate-100 dark:bg-surface-dark rounded-xl flex items-center justify-center">
+                          <span className="material-symbols-outlined !text-[32px] opacity-40">folder_open</span>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-500">Nenhum projeto encontrado para este cliente</p>
                         {currentUser.accessLevel === 'MANAGER' && (
-                          <button onClick={() => setIsNewProjectModalOpen(true)} className="text-primary font-bold hover:underline">Criar novo projeto</button>
+                          <button onClick={() => setIsNewProjectModalOpen(true)} className="text-primary font-bold hover:underline text-sm btn-glow px-4 py-2 rounded-lg">
+                            + Criar novo projeto
+                          </button>
                         )}
                       </div>
                     )}
@@ -624,6 +652,16 @@ const App: React.FC = () => {
             </React.Suspense>
           </div>
         </main>
+
+        <Sidebar
+          user={currentUser}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        />
 
         <React.Suspense fallback={null}>
           {selectedProject && (

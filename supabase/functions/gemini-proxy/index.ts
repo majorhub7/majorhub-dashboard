@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { GoogleGenerativeAI } from "npm:@google/generative-ai@latest"
+import { CHAT_SYSTEM_PROMPT } from "./prompts.ts";
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -47,7 +48,7 @@ serve(async (req) => {
                 try {
                     const model = genAI.getGenerativeModel({
                         model: modelName,
-                        systemInstruction: "You are the Major Hub Creative Assistant. Respond in Portuguese (PT-BR)."
+                        systemInstruction: CHAT_SYSTEM_PROMPT
                     })
 
                     const chat = model.startChat({

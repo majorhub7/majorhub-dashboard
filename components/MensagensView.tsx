@@ -94,13 +94,23 @@ const MensagensView: React.FC<MensagensViewProps> = ({ currentUser }) => {
             senderId: 'ai-major',
             senderName: 'Major I.A',
             senderAvatar: 'ai-avatar',
-            text: "Desculpe, estou com uma instabilidade momentânea na conexão com o cérebro do Google. Pode tentar novamente em alguns segundos? 🤖",
+            text: "Ops! Tive um pequeno problema ao processar sua mensagem. Vamos tentar novamente? 💫",
             timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
           };
           addVirtualMessage('ai-major', errorMsg);
         }
       } catch (err) {
         console.error('Erro ao obter resposta da Major I.A:', err);
+        // Adiciona mensagem de erro mesmo em caso de exception
+        const errorMsg: Message = {
+          id: Math.random().toString(36).substr(2, 9),
+          senderId: 'ai-major',
+          senderName: 'Major I.A',
+          senderAvatar: 'ai-avatar',
+          text: "Ops! Tive um pequeno problema ao processar sua mensagem. Vamos tentar novamente? 💫",
+          timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        };
+        addVirtualMessage('ai-major', errorMsg);
       } finally {
         setIsAITyping(false);
       }

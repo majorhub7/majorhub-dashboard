@@ -1,21 +1,103 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
+/* ========================================
+   🎨 MAJORHUB PREMIUM DESIGN SYSTEM
+   Paleta: #664FFA + Harmonia Composta
+   ======================================== */
+
 @layer base {
+  :root {
+    /* CSS Variables for dynamic theming */
+    --color-primary: 102, 79, 250;
+    --color-gold: 250, 200, 100;
+    --color-mint: 100, 250, 200;
+    --color-coral: 250, 100, 100;
+  }
+
   body {
-    @apply font-body bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-100;
+    @apply font-body bg-surface-light dark:bg-surface-dark text-slate-800 dark:text-slate-100;
     letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   h1,
   h2,
   h3,
   h4 {
-    @apply font-display;
+    @apply font-display tracking-tight;
+  }
+
+  /* Premium Selection Color */
+  ::selection {
+    background: rgba(102, 79, 250, 0.2);
+    color: #664FFA;
+  }
+}
+
+@layer components {
+
+  /* ===== PREMIUM CARD STYLES ===== */
+  .card-premium {
+    @apply bg-white dark:bg-surface-elevated-dark border border-border-subtle dark:border-border-subtle-dark rounded-lg shadow-depth-sm transition-all duration-300 ease-out;
+  }
+
+  .card-premium:hover {
+    @apply shadow-depth -translate-y-1;
+  }
+
+  /* ===== GLOW BUTTON ===== */
+  .btn-glow {
+    @apply relative overflow-hidden;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .btn-glow::before {
+    content: '';
+    @apply absolute inset-0 opacity-0;
+    background: linear-gradient(135deg, rgba(102, 79, 250, 0.3) 0%, transparent 50%);
+    transition: opacity 0.3s ease;
+  }
+
+  .btn-glow:hover::before {
+    @apply opacity-100;
+  }
+
+  .btn-glow:hover {
+    @apply shadow-glow scale-[1.02];
+  }
+
+  .btn-glow:active {
+    @apply scale-[0.98];
+  }
+
+  /* ===== ANIMATED PROGRESS BAR ===== */
+  .progress-animated {
+    @apply relative overflow-hidden;
+    background: linear-gradient(90deg,
+        #664FFA 0%,
+        #8B7BFC 50%,
+        #664FFA 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+
+  /* ===== GRADIENT TEXT ===== */
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #664FFA 0%, #FA64C8 100%);
+  }
+
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #FAC864 0%, #FA6464 100%);
   }
 }
 
 @layer utilities {
+
+  /* ===== SCROLLBAR STYLES ===== */
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -24,22 +106,121 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-primary/20 rounded-full;
+    transition: background 0.2s ease;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/40;
+  }
+
+  /* ===== GRAIN TEXTURE OVERLAY ===== */
+  .grain-overlay::after {
+    content: '';
+    @apply absolute inset-0 pointer-events-none opacity-[0.03];
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  }
+
+  /* ===== STAGGERED REVEAL ===== */
+  .stagger-reveal>* {
+    @apply opacity-0;
+    animation: reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .stagger-reveal>*:nth-child(1) {
+    animation-delay: 0ms;
+  }
+
+  .stagger-reveal>*:nth-child(2) {
+    animation-delay: 80ms;
+  }
+
+  .stagger-reveal>*:nth-child(3) {
+    animation-delay: 160ms;
+  }
+
+  .stagger-reveal>*:nth-child(4) {
+    animation-delay: 240ms;
+  }
+
+  .stagger-reveal>*:nth-child(5) {
+    animation-delay: 320ms;
+  }
+
+  .stagger-reveal>*:nth-child(6) {
+    animation-delay: 400ms;
+  }
+
+  /* ===== HOVER LIFT ===== */
+  .hover-lift {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 0.3s ease;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    @apply shadow-depth;
+  }
+
+  /* ===== GLOW PULSE ===== */
+  .glow-pulse {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+
+  /* ===== BORDER GLOW ===== */
+  .border-glow {
+    position: relative;
+  }
+
+  .border-glow::before {
+    content: '';
+    @apply absolute -inset-px opacity-0;
+    border-radius: inherit;
+    background: linear-gradient(135deg, #664FFA, #FA64C8);
+    transition: opacity 0.3s ease;
+    z-index: -1;
+  }
+
+  .border-glow:hover::before {
+    @apply opacity-100;
+  }
 }
 
+/* ===== GOOGLE MATERIAL SYMBOLS ===== */
 .material-symbols-outlined {
-  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
   font-size: 22px;
+  transition: transform 0.2s ease, color 0.2s ease;
 }
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
+/* Filled variant for active states */
+.material-symbols-filled {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* ===== ACCESSIBILITY: REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
-  border-radius: 10px;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .stagger-reveal>* {
+    animation: none;
+    opacity: 1;
+  }
 }

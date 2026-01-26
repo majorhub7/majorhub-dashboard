@@ -145,7 +145,39 @@ export interface InspirationItem {
   imageUrl: string;
 }
 
+// ============================================
+// NOTIFICATION TYPES
+// ============================================
+
+export type NotificationType = 'deadline' | 'mention' | 'project_created' | 'status_changed' | 'goal_completed';
+export type NotificationLinkType = 'project' | 'goal' | 'comment';
+
+export interface Notification {
+  id: string;
+  userId: string;
+  clientId?: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  linkType?: NotificationLinkType;
+  linkId?: string;
+  readAt?: string;
+  createdAt: string;
+  metadata?: Record<string, any>;
+}
+
+export interface NotificationPreferences {
+  userId: string;
+  inAppEnabled: boolean;
+  notifyDeadlines: boolean;
+  notifyMentions: boolean;
+  notifyProjectUpdates: boolean;
+  notifyGoalCompleted: boolean;
+  updatedAt?: string;
+}
+
 // Re-export database types for compatibility
+
 export type { Database };
 
 export type DbProjectWithRelations = Database['public']['Tables']['projects']['Row'] & {

@@ -23,30 +23,52 @@ export function useAuth() {
     const isFetchingProfile = useRef<string | null>(null);
 
     const fetchProfile = useCallback(async (userId: string) => {
-        if (!userId || isFetchingProfile.current === userId) return;
+        console.log('🔍 [DEBUG] fetchProfile called with userId:', userId);
+        if (!userId || isFetchingProfile.current === userId) {
+            console.log('🔍 [DEBUG] Skipping fetch - userId:', userId, 'isFetching:', isFetchingProfile.current);
+            return;
+        }
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
+            console.error('⏰ [DEBUG] TIMEOUT! Profile fetch took longer than 3 seconds');
             controller.abort();
             setAuthState(prev => ({ ...prev, loading: false }));
-        }, 6000);
+        }, 3000); // Reduced to 3s for faster feedback
 
         try {
             isFetchingProfile.current = userId;
+            console.log('🔍 [DEBUG] Fetching profile from Supabase...');
+
+            // Try .single() instead of array to avoid RLS issues
             const { data, error } = await supabase
                 .from('users')
                 .select('*')
-                .eq('id', userId);
+                .eq('id', userId)
+                .single(); // Use .single() instead of relying on array
 
-            if (!error && data && data.length > 0) {
-                setAuthState(prev => ({ ...prev, profile: data[0], loading: false }));
+            console.log('🔍 [DEBUG] Supabase response:', { data, error });
+
+            if (error) {
+                console.error('❌ [DEBUG] Supabase error:', error);
+                // Check if error is RLS related
+                if (error.message?.includes('RLS') || error.message?.includes('policy') || error.code === 'PGRST116') {
+                    console.error('🚨 [DEBUG] RLS Policy blocking! Check Supabase RLS settings.');
+                }
+                setAuthState(prev => ({ ...prev, profile: null, loading: false }));
+                return;
+            }
+
+            if (data) {
+                console.log('✅ [DEBUG] Profile found:', data);
+                setAuthState(prev => ({ ...prev, profile: data, loading: false }));
             } else {
-                console.warn('Profile fetch completed but no profile found for:', userId);
+                console.warn('⚠️ [DEBUG] Profile fetch completed but no profile found for:', userId);
                 setAuthState(prev => ({ ...prev, profile: null, loading: false }));
             }
         } catch (err: any) {
             if (err.name !== 'AbortError') {
-                console.error('Error fetching profile:', err);
+                console.error('❌ [DEBUG] Critical error fetching profile:', err);
             }
             setAuthState(prev => ({ ...prev, loading: false }));
         } finally {
@@ -155,7 +177,8 @@ export function useAuth() {
                 token,
                 client_id: clientId,
                 role,
-                invited_by: authState.user?.id
+                invited_by: authState.user?.id,
+                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
             })
             .select()
             .single();
@@ -251,18 +274,63 @@ export function useAuth() {
     };
 
     const signIn = async (email: string, password: string) => {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        return { error };
+        console.log('🔐 [DEBUG] Sign In attempt for:', email);
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            console.log('🔐 [DEBUG] Sign In response:', { data: data?.user?.id, error });
+
+            if (error) {
+                console.error('❌ [DEBUG] Sign In error:', error);
+            } else {
+                console.log('✅ [DEBUG] Sign In successful! User ID:', data?.user?.id);
+            }
+
+            return { error };
+        } catch (err) {
+            console.error('❌ [DEBUG] Sign In exception:', err);
+            return { error: err as Error };
+        }
     };
 
     const signOut = async () => {
+        console.log('🚪 [DEBUG] Sign Out called');
         await supabase.auth.signOut();
         setAuthState({ user: null, profile: null, session: null, loading: false });
+    };
+
+    const signUp = async (email: string, password: string, name?: string) => {
+        console.log('📝 [DEBUG] Sign Up attempt for:', email);
+        try {
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        name: name || email.split('@')[0],
+                        access_level: 'MANAGER',
+                        role: 'Gestor',
+                        is_onboarded: false
+                    }
+                }
+            });
+
+            if (error) {
+                console.error('❌ [DEBUG] Sign Up error:', error);
+                return { error };
+            }
+
+            console.log('✅ [DEBUG] Sign Up successful! User ID:', data?.user?.id);
+            return { data, error: null };
+        } catch (err) {
+            console.error('❌ [DEBUG] Sign Up exception:', err);
+            return { error: err as Error };
+        }
     };
 
     return {
         ...authState,
         signIn,
+        signUp,
         signOut,
         updateProfile,
         completeOnboarding,
