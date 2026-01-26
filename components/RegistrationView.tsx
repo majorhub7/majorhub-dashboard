@@ -204,14 +204,28 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, 
                     <p className="text-slate-500 dark:text-slate-400 leading-relaxed mb-10">
                         {inviteData?.type === 'project_invite' ? (
                             <>
-                                Você foi convidado para colaborar no projeto <strong>{inviteData.project_title}</strong> da empresa <strong>{inviteData.client_name}</strong>.
+                                Você foi convidado para colaborar {inviteData.project_title ? (
+                                    <>no projeto <strong>{inviteData.project_title}</strong></>
+                                ) : (
+                                    <>na equipe</>
+                                )} da empresa <strong>{inviteData.client_name}</strong>.
                                 <br /><br />
                                 Crie sua conta para acessar o dashboard.
                             </>
                         ) : (
                             <>
-                                Sua conta foi criada e o acesso ao seu projeto já está liberado.<br /><br />
-                                Antes de entrar no dashboard, precisamos finalizar seu perfil para organizar a comunicação e garantir segurança no acesso.
+                                {inviteData?.type === 'client_invite' ? (
+                                    <>
+                                        Você foi convidado para fazer parte da equipe <strong>{inviteData.client_name}</strong>.
+                                        <br /><br />
+                                        Complete seu cadastro para acessar o ambiente corporativo.
+                                    </>
+                                ) : (
+                                    <>
+                                        Sua conta foi criada e o acesso ao seu projeto já está liberado.<br /><br />
+                                        Antes de entrar no dashboard, precisamos finalizar seu perfil para organizar a comunicação e garantir segurança no acesso.
+                                    </>
+                                )}
                             </>
                         )}
                     </p>
