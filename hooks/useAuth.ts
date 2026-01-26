@@ -490,6 +490,31 @@ export function useAuth() {
         }
     };
 
+    const joinProjectWithVariable = async (data: any) => {
+        const { fullVariable, name, whatsapp, avatar_url } = data;
+
+        const { data: result, error } = await (supabase as any)
+            .rpc('join_project_by_variable', {
+                full_variable: fullVariable,
+                user_name: name,
+                user_whatsapp: whatsapp,
+                user_avatar: avatar_url
+            });
+
+        if (error) return { error };
+
+        if (result && !result.success) {
+            return { error: new Error(result.message) };
+        }
+
+        // Refresh profile to reflect new clientId/is_onboarded status
+        if (authState.user) {
+            await fetchProfile(authState.user.id);
+        }
+
+        return { data: result, error: null };
+    };
+
     return {
         ...authState,
         signIn,
@@ -500,6 +525,7 @@ export function useAuth() {
         createInvitation,
         validateToken,
         signUpWithInvitation,
-        signUpWithProjectInvite
+        signUpWithProjectInvite,
+        joinProjectWithVariable
     };
 }

@@ -1,6 +1,6 @@
-
 import React, { useState } from 'react';
 import { Role, User, Project, ClientAccount } from '../types';
+import { useProjectInvites } from '../hooks/useProjectInvites';
 
 interface ConfiguracoesViewProps {
   currentUser: User;
@@ -33,6 +33,21 @@ const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
   const [selectedProfile, setSelectedProfile] = useState<User | null>(null);
   const [confirmName, setConfirmName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isAddingVariable, setIsAddingVariable] = useState(false);
+  const [inviteStep, setInviteStep] = useState(0);
+  const [inviteScope, setInviteScope] = useState<'PROJECT' | 'ACCOUNT' | null>(null);
+  const [generatedLink, setGeneratedLink] = useState('');
+  const [newVariable, setNewVariable] = useState({
+    projectId: null as string | null,
+    variableCode: '',
+    role: 'VIEWER' as 'VIEWER' | 'CONTRIBUTOR' | 'ADMIN'
+  });
+
+  const {
+    inviteCodes,
+    createInviteCode,
+    deleteInviteCode
+  } = useProjectInvites(selectedClient?.id ?? null);
 
 
 
@@ -111,6 +126,289 @@ const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
           )}
         </div>
       </section>
+
+      {/* Convites & Permissões */}
+      {selectedClient && currentUser.accessLevel === 'MANAGER' && (
+        <section className="space-y-6">
+          <div className="flex items-center justify-between px-2">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-500 shadow-inner">
+                <span className="material-symbols-outlined">person_add</span>
+              </div>
+              <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">Membros & Convites</h3>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 p-8 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
+            <div className="flex items-center justify-between mb-10">
+              <div>
+                <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">Links de Acesso Ativos</h4>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Gerencie os convites configurados por projeto</p>
+              </div>
+              <button
+                onClick={() => setIsAddingVariable(true)}
+                className="px-8 py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 group"
+              >
+                <span className="material-symbols-outlined !text-[20px] group-hover:rotate-90 transition-transform">add</span> Convidar Novo Membro
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {inviteCodes.map((code) => {
+                const project = projects.find(p => p.id === code.project_id);
+                return (
+                  <div key={code.id} className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 flex flex-col justify-between group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                      <button
+                        onClick={() => {
+                          const accessLink = `${window.location.origin}/?client_invite=${selectedClient.id}&variable=${code.variable_code}`;
+                          navigator.clipboard.writeText(accessLink);
+                          alert('Link de convite copiado!');
+                        }}
+                        className="size-10 rounded-xl bg-primary text-white flex items-center justify-center hover:opacity-90 transition-all shadow-lg shadow-primary/20"
+                        title="Copiar Link"
+                      >
+                        <span className="material-symbols-outlined !text-[20px]">content_copy</span>
+                      </button>
+                      <button
+                        onClick={() => deleteInviteCode(code.id)}
+                        className="size-10 rounded-xl bg-white dark:bg-slate-800 text-rose-500 flex items-center justify-center hover:bg-rose-50 dark:hover:bg-rose-900/20 border border-slate-100 dark:border-slate-700 transition-all shadow-sm"
+                        title="Remover Link"
+                      >
+                        <span className="material-symbols-outlined !text-[20px]">delete</span>
+                      </button>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-tighter shadow-sm ${code.role === 'ADMIN' ? 'bg-rose-100 text-rose-600' :
+                          code.role === 'CONTRIBUTOR' ? 'bg-amber-100 text-amber-600' :
+                            'bg-emerald-100 text-emerald-600'
+                          }`}>
+                          {code.role === 'ADMIN' ? 'Admin do Projeto' : code.role === 'CONTRIBUTOR' ? 'Colaborador' : 'Visualizador'}
+                        </span>
+                      </div>
+                      <h5 className="text-xl font-black text-slate-900 dark:text-white mb-1 group-hover:text-primary transition-colors">
+                        {project?.title || 'Toda a Conta'}
+                      </h5>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <span className="material-symbols-outlined !text-[14px]">{code.project_id ? 'folder' : 'dashboard_customize'}</span>
+                        {code.project_id ? `Projeto: ${code.variable_code}` : 'Acesso à Conta'}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              {inviteCodes.length === 0 && (
+                <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest italic">Nenhuma variável cadastrada para este cliente.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* MODAL CONVIDAR NOVO MEMBRO (UX PRO MAX) */}
+      {isAddingVariable && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-6 animate-fade-in">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => { setIsAddingVariable(false); setInviteStep(1); setGeneratedLink(''); }} />
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[3.5rem] p-10 shadow-2xl border border-slate-100 dark:border-slate-800 animate-scale-up overflow-hidden">
+
+            {/* PROGRESS BAR */}
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-100 dark:bg-slate-800">
+              <div
+                className="h-full bg-primary transition-all duration-500 ease-out"
+                style={{ width: `${(inviteStep / 3) * 100}%` }}
+              />
+            </div>
+
+            {inviteStep === 0 && (
+              <div className="animate-slide-up">
+                <div className="size-16 bg-violet-50 dark:bg-violet-900/20 rounded-2xl flex items-center justify-center text-primary mb-6">
+                  <span className="material-symbols-outlined !text-[32px]">admin_panel_settings</span>
+                </div>
+                <h4 className="text-2xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Onde este membro deve atuar?</h4>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-8">Defina o escopo de acesso do novo convidado</p>
+
+                <div className="grid grid-cols-1 gap-4">
+                  <button
+                    onClick={() => {
+                      setInviteScope('ACCOUNT');
+                      setNewVariable({ ...newVariable, projectId: null });
+                      setInviteStep(2); // Jump to Role selection
+                    }}
+                    className="p-6 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 hover:border-primary/30 hover:bg-primary/5 transition-all text-left flex items-center gap-5 group"
+                  >
+                    <div className="size-16 rounded-2xl bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center text-primary shrink-0 transition-transform group-hover:scale-110">
+                      <span className="material-symbols-outlined !text-[32px]">dashboard_customize</span>
+                    </div>
+                    <div>
+                      <p className="font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors">Toda a Conta do Cliente</p>
+                      <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 mt-1">Acesso a todos os projetos atuais e futuros.</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setInviteScope('PROJECT');
+                      setInviteStep(1); // Go to Project selection
+                    }}
+                    className="p-6 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 hover:border-primary/30 hover:bg-primary/5 transition-all text-left flex items-center gap-5 group"
+                  >
+                    <div className="size-16 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-500 shrink-0 transition-transform group-hover:scale-110">
+                      <span className="material-symbols-outlined !text-[32px]">folder</span>
+                    </div>
+                    <div>
+                      <p className="font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors">Projeto Específico</p>
+                      <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 mt-1">Acesso restrito a apenas um projeto selecionado.</p>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="mt-10 flex justify-end">
+                  <button onClick={() => setIsAddingVariable(false)} className="px-6 py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest">Cancelar</button>
+                </div>
+              </div>
+            )}
+
+            {inviteStep === 1 && (
+              <div className="animate-slide-up">
+                <button onClick={() => setInviteStep(0)} className="flex items-center gap-2 text-slate-400 hover:text-primary transition-colors mb-6">
+                  <span className="material-symbols-outlined !text-[18px]">arrow_back</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Voltar para Tipo</span>
+                </button>
+                <div className="size-16 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center text-blue-500 mb-6">
+                  <span className="material-symbols-outlined !text-[32px]">folder_shared</span>
+                </div>
+                <h4 className="text-2xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Qual o projeto?</h4>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-8">Selecione o projeto onde o novo membro atuará</p>
+
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {projects.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setNewVariable({ ...newVariable, projectId: p.id });
+                        setInviteStep(2);
+                      }}
+                      className={`w-full p-5 rounded-2xl border-2 text-left transition-all flex items-center justify-between group ${newVariable.projectId === p.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700'
+                        }`}
+                    >
+                      <div>
+                        <p className="font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors">{p.title}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.statusLabel}</p>
+                      </div>
+                      <span className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">chevron_right</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-10 flex justify-end">
+                  <button onClick={() => setIsAddingVariable(false)} className="px-6 py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest">Cancelar</button>
+                </div>
+              </div>
+            )}
+
+            {inviteStep === 2 && (
+              <div className="animate-slide-up">
+                <button onClick={() => inviteScope === 'PROJECT' ? setInviteStep(1) : setInviteStep(0)} className="flex items-center gap-2 text-slate-400 hover:text-primary transition-colors mb-6">
+                  <span className="material-symbols-outlined !text-[18px]">arrow_back</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Voltar para {inviteScope === 'PROJECT' ? 'Projetos' : 'Tipo'}</span>
+                </button>
+
+                <h4 className="text-2xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Nível de Acesso</h4>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-8">Defina o que este membro poderá fazer</p>
+
+                <div className="grid grid-cols-1 gap-4">
+                  {[
+                    { id: 'VIEWER', label: 'Visualizador', desc: 'Apenas visualiza e comenta nos projetos.', icon: 'visibility', colorClass: 'bg-emerald-50 text-emerald-500 dark:bg-emerald-900/20' },
+                    { id: 'CONTRIBUTOR', label: 'Colaborador', desc: 'Edita tarefas e participa das entregas.', icon: 'edit_note', colorClass: 'bg-amber-50 text-amber-500 dark:bg-amber-900/20' },
+                    { id: 'ADMIN', label: 'Admin Projeto', desc: 'Controle total sobre este acesso específico.', icon: 'shield_person', colorClass: 'bg-rose-50 text-rose-500 dark:bg-rose-900/20' }
+                  ].map(role => (
+                    <button
+                      key={role.id}
+                      onClick={async () => {
+                        const project = projects.find(p => p.id === newVariable.projectId);
+                        const prefix = inviteScope === 'ACCOUNT' ? 'ACCT' : (project?.title.substring(0, 4).replace(/\s/g, '').toUpperCase() || 'PROJ');
+                        const random = Math.floor(1000 + Math.random() * 9000);
+                        const autoCode = `${prefix}_${role.id}_${random}`;
+
+                        try {
+                          await createInviteCode({
+                            client_id: selectedClient!.id,
+                            project_id: newVariable.projectId, // Will be null for ACCOUNT scope
+                            variable_code: autoCode,
+                            role: role.id
+                          });
+
+                          const link = `${window.location.origin}/?client_invite=${selectedClient!.id}&variable=${autoCode}`;
+                          setGeneratedLink(link);
+                          setInviteStep(3);
+                        } catch (err) {
+                          alert('Erro ao gerar convite');
+                        }
+                      }}
+                      className="p-5 rounded-3xl border-2 border-slate-100 dark:border-slate-800 hover:border-primary/30 hover:bg-primary/5 transition-all text-left flex items-center gap-5 group"
+                    >
+                      <div className={`size-14 rounded-2xl flex items-center justify-center shrink-0 ${role.colorClass}`}>
+                        <span className="material-symbols-outlined !text-[28px]">{role.icon}</span>
+                      </div>
+                      <div>
+                        <p className="font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors underline decoration-transparent group-hover:decoration-primary underline-offset-4">{role.label}</p>
+                        <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 mt-1">{role.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {inviteStep === 3 && (
+              <div className="animate-scale-up text-center py-4">
+                <div className="size-20 bg-emerald-50 dark:bg-emerald-900/20 rounded-full flex items-center justify-center text-emerald-500 mx-auto mb-8 shadow-inner">
+                  <span className="material-symbols-outlined !text-[40px]">check_circle</span>
+                </div>
+
+                <h4 className="text-2xl font-black text-slate-900 dark:text-white mb-4 uppercase tracking-tight">Convite Pronto!</h4>
+                <p className="text-slate-500 dark:text-slate-400 mb-10 text-sm leading-relaxed">
+                  O link de acesso direto foi gerado.<br />
+                  Ao abrir este link, o membro será vinculado automaticamente ao projeto desejado.
+                </p>
+
+                <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 mb-8 relative group overflow-hidden">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 text-left">Link de Convite</p>
+                  <p className="text-xs font-mono text-primary break-all text-left">{generatedLink}</p>
+
+                  <div className="absolute inset-x-0 bottom-0 h-1 bg-primary transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
+                </div>
+
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(generatedLink);
+                    setIsAddingVariable(false);
+                    setInviteStep(1);
+                    setGeneratedLink('');
+                    alert('Convite copiado para sua área de transferência! Envie para o novo membro.');
+                  }}
+                  className="w-full py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-3xl font-black uppercase text-[12px] tracking-[0.2em] shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all"
+                >
+                  Copiar & Fechar <span className="material-symbols-outlined !text-[18px]">content_copy</span>
+                </button>
+
+                <button
+                  onClick={() => { setInviteStep(1); setGeneratedLink(''); }}
+                  className="mt-6 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-primary transition-colors"
+                >
+                  Criar outro convite
+                </button>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE PERFIL SIMPLES */}
       {selectedProfile && (

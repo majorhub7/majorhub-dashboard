@@ -55,7 +55,8 @@ const App: React.FC = () => {
     validateToken,
     signUpWithInvitation,
     createInvitation,
-    signUpWithProjectInvite
+    signUpWithProjectInvite,
+    joinProjectWithVariable
   } = useAuth();
 
   // Expose as global for child components to avoid prop drilling for now
@@ -105,10 +106,14 @@ const App: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     const inviteCode = params.get('invite');
+    const clientInvite = params.get('client_invite');
+    const variable = params.get('variable');
     if (token) {
       setRegisterToken(token);
     } else if (inviteCode) {
-      setRegisterToken(`invite:${inviteCode}`); // Hack to trigger view, improved below
+      setRegisterToken(`invite:${inviteCode}`);
+    } else if (clientInvite) {
+      setRegisterToken(`client:${clientInvite}${variable ? `:${variable}` : ''}`);
     }
   }, []);
 
@@ -274,15 +279,20 @@ const App: React.FC = () => {
 
   if (registerToken) {
     const isProjectInvite = registerToken.startsWith('invite:');
-    const actualToken = isProjectInvite ? registerToken.split(':')[1] : registerToken;
+    const isClientInvite = registerToken.startsWith('client:');
+    const parts = registerToken.split(':');
+    const actualToken = isProjectInvite || isClientInvite ? parts[1] : registerToken;
+    const urlVariable = isClientInvite && parts[2] ? parts[2] : undefined;
 
     return (
       <React.Suspense fallback={<LoadingFallback />}>
         <RegistrationView
-          token={!isProjectInvite ? actualToken : ''}
+          token={!isProjectInvite && !isClientInvite ? actualToken : ''}
           inviteCode={isProjectInvite ? actualToken : undefined}
+          clientInvite={isClientInvite ? actualToken : undefined}
+          urlVariable={urlVariable}
           onValidateToken={validateToken}
-          onSignUp={!isProjectInvite ? signUpWithInvitation : signUpWithProjectInvite}
+          onSignUp={isClientInvite ? joinProjectWithVariable : (!isProjectInvite ? signUpWithInvitation : signUpWithProjectInvite)}
           onCancel={() => {
             setRegisterToken(null);
             window.history.pushState({}, '', '/');

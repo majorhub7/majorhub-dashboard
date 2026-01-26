@@ -6,12 +6,14 @@ import { useAuth } from '../hooks/useAuth';
 interface RegistrationViewProps {
     token?: string;
     inviteCode?: string;
+    clientInvite?: string;
+    urlVariable?: string; // New prop
     onValidateToken: (token: string) => Promise<{ data: any; error: any }>;
     onSignUp: (data: any) => Promise<{ error: any }>;
     onCancel: () => void;
 }
 
-const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, onValidateToken, onSignUp, onCancel }) => {
+const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, clientInvite, urlVariable, onValidateToken, onSignUp, onCancel }) => {
     const { user: authUser } = useAuth();
     const [screen, setScreen] = useState<'loading' | 'welcome' | 'form' | 'success' | 'invalid'>('loading');
     const [inviteData, setInviteData] = useState<any>(null);
@@ -26,12 +28,13 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, 
         whatsapp: '',
         password: '',
         confirmPassword: '',
+        variableCode: urlVariable || '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
         validate();
-    }, [token]);
+    }, [token, inviteCode, clientInvite]);
 
     useEffect(() => {
         if (authUser?.email) {
@@ -45,7 +48,6 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, 
         if (inviteCode) {
             // New Flow: Project Invite
             try {
-                // Using any here because types are not yet updated with the new RPC
                 const { data, error } = await (supabase as any)
                     .rpc('get_project_by_invite_code', { code: inviteCode })
                     .single();
@@ -53,11 +55,33 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, 
                 if (error || !data) {
                     setScreen('invalid');
                 } else {
-                    // Structure data to match expected inviteData format or add specific fields
                     setInviteData({
                         ...data,
                         type: 'project_invite',
-                        role: 'CLIENT' // Default role
+                        role: 'CLIENT'
+                    });
+                    setScreen('welcome');
+                }
+            } catch (err) {
+                setScreen('invalid');
+            }
+        } else if (clientInvite) {
+            // New Flow: Client Invitation (requires variable)
+            try {
+                const { data, error } = await supabase
+                    .from('clients')
+                    .select('id, name, logo_url')
+                    .eq('id', clientInvite)
+                    .single();
+
+                if (error || !data) {
+                    setScreen('invalid');
+                } else {
+                    setInviteData({
+                        client_id: (data as any).id,
+                        client_name: (data as any).name,
+                        client_logo: (data as any).logo_url,
+                        type: 'client_invite'
                     });
                     setScreen('welcome');
                 }
@@ -107,6 +131,7 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, 
         if (!formData.name) newErrors.name = 'Nome é obrigatório';
         if (!formData.email) newErrors.email = 'Email é obrigatório';
         if (!formData.whatsapp) newErrors.whatsapp = 'WhatsApp é obrigatório';
+        if (clientInvite && !formData.variableCode) newErrors.variableCode = 'Código de permissão é obrigatório';
 
         if (!authUser) {
             if (formData.password.length < 8) newErrors.password = 'A senha deve ter pelo menos 8 dígitos';
@@ -144,6 +169,7 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, 
                 ...formData,
                 token,
                 inviteCode,
+                fullVariable: clientInvite ? `${inviteData.client_name}+${formData.variableCode}` : undefined,
                 avatar_url: finalAvatarUrl
             });
 
@@ -323,6 +349,23 @@ const RegistrationView: React.FC<RegistrationViewProps> = ({ token, inviteCode, 
                                     className="w-full bg-slate-50 dark:bg-slate-800/50 border-none rounded-2xl py-4 px-6 text-sm focus:ring-4 focus:ring-primary/5 transition-all outline-none dark:text-white font-mono"
                                 />
                             </div>
+
+                            {/* VARIABLE CODE (Only if client invite) */}
+                            {clientInvite && (
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-2 italic">Código de Permissão (Variável) *</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.variableCode}
+                                        onChange={e => setFormData({ ...formData, variableCode: e.target.value.toUpperCase() })}
+                                        placeholder="Ex: ADMIN, DEV, GESTOR"
+                                        className="w-full bg-primary/5 border-2 border-primary/20 rounded-2xl py-4 px-6 text-sm focus:ring-4 focus:ring-primary/10 transition-all outline-none dark:text-white font-bold"
+                                    />
+                                    {errors.variableCode && <p className="text-rose-500 text-[10px] font-bold ml-2">{errors.variableCode}</p>}
+                                    <p className="text-[9px] text-slate-400 ml-2 uppercase font-black">Será gerado: {inviteData?.client_name}+{formData.variableCode || '...'}</p>
+                                </div>
+                            )}
 
                             {/* PASSWORD FIELDS (Only if not logged in) */}
                             {!authUser && (
