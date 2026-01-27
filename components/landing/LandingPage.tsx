@@ -36,12 +36,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
             >
                 <div className="container mx-auto px-6 flex items-center justify-between">
                     <div className="flex items-center gap-2 group cursor-default">
-                        {/* Simplified Logo Concept for Technical Vibe */}
-                        <div className="w-8 h-8 bg-gradient-to-br from-acid to-primary rounded-sm flex items-center justify-center transform rotate-45 group-hover:rotate-0 transition-transform duration-500">
-                            <span className="material-symbols-outlined text-void font-bold !text-[20px] transform -rotate-45 group-hover:rotate-0 transition-transform duration-500">diamond</span>
-                        </div>
-                        <span className="font-display font-bold text-xl tracking-tighter hidden sm:block">
-                            MAJOR<span className="text-acid">HUB</span>
+                        {/* Official Logo */}
+                        <img
+                            src="https://majorhub.com.br/logo-major.svg"
+                            alt="Major Hub"
+                            className="h-10 w-auto"
+                        />
+                        <span className="font-display font-bold text-xl tracking-tighter hidden sm:block text-white">
+                            Major Hub
                         </span>
                     </div>
 

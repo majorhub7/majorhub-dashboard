@@ -54,7 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-8 pt-10 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img
-              src="https://majorhub.com.br/logo-majorhub.svg"
+              src="https://majorhub.com.br/logo-major.svg"
               alt="Major Hub"
               className="h-10 w-auto"
             />

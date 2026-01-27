@@ -8,7 +8,7 @@ const Footer = ({ onLoginClick }: { onLoginClick: () => void }) => {
                 <div className="flex flex-col md:flex-row justify-between items-start gap-12 mb-16">
                     <div className="max-w-xs">
                         <div className="flex items-center gap-2 mb-6">
-                            <img src="https://majorhub.com.br/logo-majorhub.svg" alt="MajorHub" className="h-8 brightness-0 invert" />
+                            <img src="https://majorhub.com.br/logo-major.svg" alt="MajorHub" className="h-8 brightness-0 invert" />
                             <span className="text-white font-bold text-xl tracking-tight">MajorHub</span>
                         </div>
                         <p className="text-slate-500 text-sm leading-relaxed">
