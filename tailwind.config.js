@@ -40,10 +40,20 @@ export default {
                 "accent-lavender": "#F0EDFF",
                 "background-light": "#FAFAFC",
                 "background-dark": "#0D0D12",
+
+                // 🌌 ELECTRIC TECHNICAL PALETTE
+                "void": "#020408",      // Absolute Black base
+                "void-surface": "#050a14", // Slightly elevated surface
+                "void-border": "#1a1f2e",  // Technical borders
+                "acid": "#00F2FE",      // Electric Cyan
+                "acid-glow": "rgba(0, 242, 254, 0.5)",
+                "acid-dark": "#0099FF", // Deep Blue fallback
             },
             fontFamily: {
                 "display": ["Plus Jakarta Sans", "sans-serif"],
-                "body": ["Outfit", "sans-serif"]
+                "body": ["Outfit", "sans-serif"],
+                "sora": ["Sora", "sans-serif"],
+                "inter": ["Inter", "sans-serif"],
             },
             borderRadius: {
                 // 🔷 GEOMETRIA EXTREMA - Sharp Tech

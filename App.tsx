@@ -1,8 +1,10 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import ProjectCard from './components/ProjectCard';
 import LoginView from './components/LoginView';
+import LandingPage from './components/landing/LandingPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import NotificationBell from './components/NotificationBell';
 
@@ -97,6 +99,7 @@ const App: React.FC = () => {
   const [registerToken, setRegisterToken] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [initStep, setInitStep] = useState(0);
+  const [showLogin, setShowLogin] = useState(false); // State to toggle between Landing and Login
 
   const carouselRef = useRef<HTMLDivElement>(null);
 
@@ -321,7 +324,26 @@ const App: React.FC = () => {
     );
   }
 
-  if (!user || !profile || !currentUser) return <LoginView onLogin={signIn} onSignUp={signUp} />;
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Redirect authenticated users to /app
+  useEffect(() => {
+    if (user && profile && currentUser && (location.pathname === '/' || location.pathname === '/login')) {
+      navigate('/app', { replace: true });
+    }
+  }, [user, profile, currentUser, location.pathname, navigate]);
+
+  if (!user || !profile || !currentUser) {
+    return (
+      <Routes>
+        <Route path="/" element={<LandingPage onLoginClick={() => navigate('/login')} />} />
+        <Route path="/login" element={<LoginView onLogin={signIn} onSignUp={signUp} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
 
   // Se for CLIENT e não concluiu o onboarding, mostra a OnboardingView
   if (currentUser.accessLevel === 'CLIENT' && !currentUser.isOnboarded) {
