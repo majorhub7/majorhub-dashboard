@@ -41,6 +41,29 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
   const [tempTitle, setTempTitle] = useState(goal.text);
   const [showTextModal, setShowTextModal] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+
+  // Share functionality
+  const handleShare = async () => {
+    setIsSharing(true);
+    try {
+      let token = goal.share_token;
+      if (!token) {
+        token = crypto.randomUUID();
+        await onUpdateGoal({ ...goal, share_token: token });
+      }
+
+      const shareUrl = `${window.location.origin}/share/goal/${token}`;
+      await navigator.clipboard.writeText(shareUrl);
+
+      // Temporary success feedback could be added here
+      alert('Link de compartilhamento copiado!');
+    } catch (err) {
+      console.error('Error sharing:', err);
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -332,7 +355,6 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
 
                   <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-2" />
 
-
                   <span className={`material-symbols-outlined text-gray-400 transition-transform duration-300 ${openSections.includes('desc') ? 'rotate-180' : ''}`}>expand_more</span>
                 </div>
               </div>
@@ -528,11 +550,17 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
       <TextEditorModal
         isOpen={showTextModal}
         onClose={() => setShowTextModal(false)}
-        title="Editar Descrição do Objetivo"
+        title={
+          <>
+            EDITAR DESCRIÇÃO <span className="text-emerald-500 ml-2">{goal.text}</span>
+          </>
+        }
         initialContent={goal.description || ''}
         onSave={async (content) => {
           await onUpdateGoal({ ...goal, description: content });
         }}
+        onShare={handleShare}
+        isSharing={isSharing}
       />
     </div>
   );

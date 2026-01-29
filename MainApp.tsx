@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation, useMatch } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import ProjectCard from './components/ProjectCard';
 import LoginView from './components/LoginView';
@@ -22,6 +22,7 @@ import MensagensView from './components/MensagensView';
 import ConfiguracoesView from './components/ConfiguracoesView';
 import OnboardingView from './components/OnboardingView';
 import RegistrationView from './components/RegistrationView';
+import SharedGoalView from './components/SharedGoalView';
 
 import {
     INITIAL_INSPIRATION,
@@ -142,6 +143,9 @@ const App: React.FC = () => {
         };
     }, [activeTab]);
 
+    // Check for shared view - Allow access regardless of auth
+    const isSharedView = useMatch('/share/goal/:token');
+
     // --- Derived State & Memos (Restored) ---
 
     const currentUser = useMemo(() => {
@@ -188,7 +192,7 @@ const App: React.FC = () => {
         const allDeliveries: Delivery[] = [];
         mappedProjects.forEach(project => {
             project.creativeGoals.forEach(goal => {
-                if (goal.dueDate) {
+                if (goal.dueDate && !goal.completed) {
                     const dueDate = new Date(goal.dueDate);
                     allDeliveries.push({
                         id: goal.id,
@@ -366,13 +370,20 @@ const App: React.FC = () => {
         );
     }
 
+
+
+    if (isSharedView) {
+        return <SharedGoalView token={isSharedView.params.token} />;
+    }
+
     if (!user || !profile || !currentUser) {
         return (
             <Routes>
                 <Route path="/" element={<LandingPage onLoginClick={() => navigate('/login')} />} />
                 <Route path="/login" element={<LoginView onLogin={signIn} onSignUp={signUp} />} />
+                <Route path="/share/goal/:token" element={<SharedGoalView />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+            </Routes >
         );
     }
 

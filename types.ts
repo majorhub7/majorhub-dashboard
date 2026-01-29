@@ -93,6 +93,7 @@ export interface CreativeGoal {
   type: 'video' | 'design' | 'campaign';
   internalChecklist?: ChecklistItem[];
   position?: number;
+  share_token?: string; // UUID for public sharing
 }
 
 export interface ProjectActivity {

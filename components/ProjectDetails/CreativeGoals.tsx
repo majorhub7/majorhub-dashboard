@@ -74,7 +74,7 @@ const SortableGoalItem = ({ goal, resp, onToggleGoal, onSelectGoal }: SortableGo
                 {goal.completed && <span className="material-symbols-outlined !text-[14px] md:!text-[18px] font-bold">check</span>}
             </button>
             <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onSelectGoal(goal)}>
-                <p className={`text-sm md:text-base font-bold transition-all truncate select-none ${goal.completed ? 'text-slate-300 line-through' : 'text-slate-700 dark:text-slate-200'}`}>{goal.text}</p>
+                <p className={`text-sm md:text-base font-bold transition-all truncate select-none ${goal.completed ? 'text-slate-300' : 'text-slate-700 dark:text-slate-200'}`}>{goal.text}</p>
                 <div className="flex items-center gap-3 mt-1">
                     <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest ${goal.completed ? 'text-emerald-500/60' : 'text-amber-500'}`}>{goal.status}</span>
                 </div>

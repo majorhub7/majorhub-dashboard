@@ -4,9 +4,11 @@ import RichTextEditor from './RichTextEditor';
 interface TextEditorModalProps {
     isOpen: boolean;
     onClose: () => void;
-    title: string;
+    title: React.ReactNode;
     initialContent: string;
     onSave: (content: string) => Promise<void> | void;
+    onShare?: () => void;
+    isSharing?: boolean;
 }
 
 const TextEditorModal: React.FC<TextEditorModalProps> = ({
@@ -14,7 +16,9 @@ const TextEditorModal: React.FC<TextEditorModalProps> = ({
     onClose,
     title,
     initialContent,
-    onSave
+    onSave,
+    onShare,
+    isSharing = false
 }) => {
     const [content, setContent] = useState(initialContent);
     const [isSaving, setIsSaving] = useState(false);
@@ -54,16 +58,29 @@ const TextEditorModal: React.FC<TextEditorModalProps> = ({
                 <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0 bg-white">
                     <div className="flex items-center gap-3">
                         <div className="w-1 h-6 bg-blue-600 rounded-none"></div>
-                        <h3 className="text-lg font-bold text-slate-900 uppercase tracking-wider font-mono">
+                        <h3 className="text-lg font-bold text-slate-900 uppercase tracking-wider font-mono flex items-center gap-2">
                             {title}
                         </h3>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="size-8 rounded-sm hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-900 transition-colors border border-transparent hover:border-slate-200"
-                    >
-                        <span className="material-symbols-outlined text-lg">close</span>
-                    </button>
+
+                    <div className="flex items-center gap-4">
+                        {onShare && (
+                            <button
+                                onClick={onShare}
+                                disabled={isSharing}
+                                className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                            >
+                                <span className="material-symbols-outlined !text-[16px]">share</span>
+                                {isSharing ? 'Gerando...' : 'Compartilhar'}
+                            </button>
+                        )}
+                        <button
+                            onClick={onClose}
+                            className="size-8 rounded-sm hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-900 transition-colors border border-transparent hover:border-slate-200"
+                        >
+                            <span className="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Body - Maximize work area */}
