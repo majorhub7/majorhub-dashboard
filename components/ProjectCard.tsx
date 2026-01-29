@@ -16,9 +16,9 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, isHighlighted = fals
   };
 
   const getStatusBadgeStyle = () => {
-    if (project.status === 'Revision') return 'bg-accent-gold/20 text-amber-700 dark:text-accent-gold';
-    if (project.status === 'Completed') return 'bg-accent-mint/20 text-emerald-700 dark:text-accent-mint';
-    return 'bg-primary/15 text-primary';
+    if (project.status === 'Revision') return 'bg-amber-500 text-white shadow-lg shadow-amber-500/20';
+    if (project.status === 'Completed') return 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20';
+    return 'bg-primary text-white shadow-lg shadow-primary/20';
   };
 
   return (
@@ -26,8 +26,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, isHighlighted = fals
       id={`project-${project.id}`}
       onClick={onClick}
       className={`group relative bg-white dark:bg-surface-elevated-dark rounded-lg overflow-hidden cursor-pointer transition-all duration-500 hover-lift ${isHighlighted
-          ? 'ring-2 ring-primary shadow-glow-lg scale-[1.02]'
-          : 'border border-border-subtle dark:border-border-subtle-dark shadow-depth-sm hover:shadow-depth'
+        ? 'ring-2 ring-primary shadow-glow-lg scale-[1.02]'
+        : 'border border-border-subtle dark:border-border-subtle-dark shadow-depth-sm hover:shadow-depth'
         }`}
     >
       {/* Image Area with Overlays */}
@@ -43,7 +43,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, isHighlighted = fals
 
         {/* Status Badge - Top Left */}
         <div className="absolute top-4 left-4 z-10">
-          <span className={`px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] rounded-sharp ${getStatusBadgeStyle()}`}>
+          <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md backdrop-blur-md ${getStatusBadgeStyle()}`}>
             {project.statusLabel}
           </span>
         </div>

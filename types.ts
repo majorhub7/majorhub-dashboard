@@ -92,6 +92,7 @@ export interface CreativeGoal {
   status: 'Pendente' | 'Em Andamento' | 'Em Revisão' | 'Concluído';
   type: 'video' | 'design' | 'campaign';
   internalChecklist?: ChecklistItem[];
+  position?: number;
 }
 
 export interface ProjectActivity {
@@ -214,17 +215,20 @@ export function mapProjectFromDb(dbProject: DbProjectWithRelations): Project {
     'Completed': 'Concluído'
   };
 
-  const creativeGoals = (dbProject.creative_goals || []).map((g: any) => ({
-    id: g.id,
-    text: g.text,
-    completed: g.completed,
-    status: g.status,
-    type: g.type,
-    dueDate: g.due_date,
-    responsibleId: g.responsible_id,
-    description: g.description,
-    internalChecklist: g.internal_checklist || []
-  }));
+  const creativeGoals = (dbProject.creative_goals || [])
+    .map((g: any) => ({
+      id: g.id,
+      text: g.text,
+      completed: g.completed,
+      status: g.status,
+      type: g.type,
+      dueDate: g.due_date,
+      responsibleId: g.responsible_id,
+      description: g.description,
+      internalChecklist: g.internal_checklist || [],
+      position: g.position || 0
+    }))
+    .sort((a: any, b: any) => (a.position - b.position) || 0);
 
   const documents = (dbProject.documents || []).map((d: any) => ({
     id: d.id,
@@ -254,7 +258,9 @@ export function mapProjectFromDb(dbProject: DbProjectWithRelations): Project {
       : 'https://placehold.co/600x400?text=Projeto',
     status: dbProject.status,
     statusLabel: statusLabels[dbProject.status] || dbProject.status,
-    progress: dbProject.progress,
+    progress: creativeGoals.length > 0
+      ? Math.round((creativeGoals.filter(g => g.completed).length / creativeGoals.length) * 100)
+      : dbProject.progress,
     priority: dbProject.priority,
     dueDate: dbProject.due_date || 'A definir',
     dueDateLabel: dbProject.due_date ? new Date(dbProject.due_date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }) : 'Prazo pendente',

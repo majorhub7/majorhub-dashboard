@@ -1,5 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CreativeGoal, User, TeamMember } from '../../types';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface CreativeGoalsProps {
     goals: CreativeGoal[];
@@ -8,12 +25,68 @@ interface CreativeGoalsProps {
     onToggleGoal: (goalId: string) => Promise<void>;
     onSelectGoal: (goal: CreativeGoal) => void;
     onAddGoal: () => Promise<void>;
+    onReorderGoals?: (newGoals: CreativeGoal[]) => void;
     isAddingGoal: boolean;
     setIsAddingGoal: (val: boolean) => void;
     newGoalText: string;
     setNewGoalText: (val: string) => void;
     getResponsible: (id?: string) => TeamMember | undefined;
 }
+
+interface SortableGoalItemProps {
+    goal: CreativeGoal;
+    resp?: TeamMember;
+    onToggleGoal: (goalId: string) => Promise<void>;
+    onSelectGoal: (goal: CreativeGoal) => void;
+}
+
+const SortableGoalItem = ({ goal, resp, onToggleGoal, onSelectGoal }: SortableGoalItemProps) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: goal.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 50 : 'auto',
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className={`flex items-center gap-4 md:gap-6 p-4 md:p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/50 rounded-2xl md:rounded-[2rem] group hover:shadow-xl transition-all shadow-sm ${isDragging ? 'rotate-2 scale-105 shadow-2xl ring-2 ring-primary/20' : ''}`}
+        >
+            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 p-1 -ml-2">
+                <span className="material-symbols-outlined !text-[20px]">drag_indicator</span>
+            </div>
+
+            <button
+                onClick={(e) => { e.stopPropagation(); onToggleGoal(goal.id); }}
+                className={`size-6 md:size-7 rounded-lg md:rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${goal.completed ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20' : 'border-slate-200 dark:border-slate-700 hover:border-primary'}`}
+            >
+                {goal.completed && <span className="material-symbols-outlined !text-[14px] md:!text-[18px] font-bold">check</span>}
+            </button>
+            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onSelectGoal(goal)}>
+                <p className={`text-sm md:text-base font-bold transition-all truncate select-none ${goal.completed ? 'text-slate-300 line-through' : 'text-slate-700 dark:text-slate-200'}`}>{goal.text}</p>
+                <div className="flex items-center gap-3 mt-1">
+                    <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest ${goal.completed ? 'text-emerald-500/60' : 'text-amber-500'}`}>{goal.status}</span>
+                </div>
+            </div>
+            {resp && (
+                <div className="flex items-center pl-3 md:pl-4 md:border-l border-slate-100 dark:border-slate-800 shrink-0">
+                    <img src={resp.avatarUrl} className="size-8 md:size-10 rounded-full border-2 border-white dark:border-slate-800 shadow-md group-hover:scale-110 transition-transform object-cover" title={resp.name} />
+                </div>
+            )}
+        </div>
+    );
+};
 
 const CreativeGoals: React.FC<CreativeGoalsProps> = React.memo(({
     goals,
@@ -22,12 +95,44 @@ const CreativeGoals: React.FC<CreativeGoalsProps> = React.memo(({
     onToggleGoal,
     onSelectGoal,
     onAddGoal,
+    onReorderGoals,
     isAddingGoal,
     setIsAddingGoal,
     newGoalText,
     setNewGoalText,
     getResponsible,
 }) => {
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (over && active.id !== over.id) {
+            const oldIndex = goals.findIndex((item) => item.id === active.id);
+            const newIndex = goals.findIndex((item) => item.id === over.id);
+
+            const newGoals = arrayMove(goals, oldIndex, newIndex);
+            // Update positions locally
+            const updatedGoals = newGoals.map((g, index) => ({
+                ...g,
+                position: index
+            }));
+
+            if (onReorderGoals) {
+                onReorderGoals(updatedGoals);
+            }
+        }
+    };
+
     return (
         <section className="bg-slate-50/50 dark:bg-slate-900/30 p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border border-slate-100 dark:border-slate-800/40">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-8 md:mb-10">
@@ -48,32 +153,28 @@ const CreativeGoals: React.FC<CreativeGoalsProps> = React.memo(({
                 </div>
             </div>
 
-            <div className="space-y-3 md:space-y-4">
-                {goals.map((goal) => {
-                    const resp = getResponsible(goal.responsibleId);
-                    return (
-                        <div key={goal.id} className="flex items-center gap-4 md:gap-6 p-4 md:p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/50 rounded-2xl md:rounded-[2rem] group hover:shadow-xl transition-all shadow-sm">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onToggleGoal(goal.id); }}
-                                className={`size-6 md:size-7 rounded-lg md:rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${goal.completed ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20' : 'border-slate-200 dark:border-slate-700 hover:border-primary'}`}
-                            >
-                                {goal.completed && <span className="material-symbols-outlined !text-[14px] md:!text-[18px] font-bold">check</span>}
-                            </button>
-                            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onSelectGoal(goal)}>
-                                <p className={`text-sm md:text-base font-bold transition-all truncate ${goal.completed ? 'text-slate-300 line-through' : 'text-slate-700 dark:text-slate-200'}`}>{goal.text}</p>
-                                <div className="flex items-center gap-3 mt-1">
-                                    <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest ${goal.completed ? 'text-emerald-500/60' : 'text-amber-500'}`}>{goal.status}</span>
-                                </div>
-                            </div>
-                            {resp && (
-                                <div className="flex items-center pl-3 md:pl-4 md:border-l border-slate-100 dark:border-slate-800 shrink-0">
-                                    <img src={resp.avatarUrl} className="size-8 md:size-10 rounded-full border-2 border-white dark:border-slate-800 shadow-md group-hover:scale-110 transition-transform object-cover" title={resp.name} />
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+            >
+                <SortableContext
+                    items={goals.map(g => g.id)}
+                    strategy={verticalListSortingStrategy}
+                >
+                    <div className="space-y-3 md:space-y-4">
+                        {goals.map((goal) => (
+                            <SortableGoalItem
+                                key={goal.id}
+                                goal={goal}
+                                resp={getResponsible(goal.responsibleId)}
+                                onToggleGoal={onToggleGoal}
+                                onSelectGoal={onSelectGoal}
+                            />
+                        ))}
+                    </div>
+                </SortableContext>
+            </DndContext>
 
             <div className="mt-8 md:mt-10">
                 {isAddingGoal ? (

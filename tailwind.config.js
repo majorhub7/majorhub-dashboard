@@ -11,33 +11,71 @@ export default {
     ],
     darkMode: "class",
     theme: {
+        container: {
+            center: true,
+            padding: "2rem",
+            screens: {
+                "2xl": "1400px",
+            },
+        },
         extend: {
             colors: {
-                // 🎨 PALETA COMPOSTA - Base #664FFA
-                "primary": "#664FFA",
-                "primary-light": "#8B7BFC",
-                "primary-dark": "#4A35D9",
-                "primary-glow": "rgba(102, 79, 250, 0.25)",
+                border: "hsl(var(--border))",
+                input: "hsl(var(--input))",
+                ring: "hsl(var(--ring))",
+                background: "hsl(var(--background))",
+                foreground: "hsl(var(--foreground))",
+                primary: {
+                    DEFAULT: "hsl(var(--primary))",
+                    foreground: "hsl(var(--primary-foreground))",
+                    // Custom MajorHub shades mapped to new system where possible or kept as legacy
+                    light: "#8B7BFC",
+                    dark: "#4A35D9",
+                    glow: "rgba(102, 79, 250, 0.25)",
+                },
+                secondary: {
+                    DEFAULT: "hsl(var(--secondary))",
+                    foreground: "hsl(var(--secondary-foreground))",
+                },
+                destructive: {
+                    DEFAULT: "hsl(var(--destructive))",
+                    foreground: "hsl(var(--destructive-foreground))",
+                },
+                muted: {
+                    DEFAULT: "hsl(var(--muted))",
+                    foreground: "hsl(var(--muted-foreground))",
+                },
+                accent: {
+                    DEFAULT: "hsl(var(--accent))",
+                    foreground: "hsl(var(--accent-foreground))",
+                    // Harmonia Composta (Split-Complementary + Triadic)
+                    gold: "#FAC864",      // Âmbar quente
+                    mint: "#64FAC8",      // Menta fria
+                    coral: "#FA6464",     // Coral vibrante
+                    magenta: "#FA64C8",   // Magenta elétrico
+                    peach: "#FFF0E6",
+                    lavender: "#F0EDFF",
+                },
+                popover: {
+                    DEFAULT: "hsl(var(--popover))",
+                    foreground: "hsl(var(--popover-foreground))",
+                },
+                card: {
+                    DEFAULT: "hsl(var(--card))",
+                    foreground: "hsl(var(--card-foreground))",
+                },
 
-                // Harmonia Composta (Split-Complementary + Triadic)
-                "accent-gold": "#FAC864",      // Âmbar quente
-                "accent-mint": "#64FAC8",      // Menta fria
-                "accent-coral": "#FA6464",     // Coral vibrante
-                "accent-magenta": "#FA64C8",   // Magenta elétrico
-
-                // Superfícies
+                // Superfícies Legacy
                 "surface-light": "#FAFAFC",
                 "surface-dark": "#0D0D12",
                 "surface-elevated": "#FFFFFF",
                 "surface-elevated-dark": "#16161F",
 
-                // Bordas
+                // Bordas Legacy
                 "border-subtle": "#E8E8F0",
                 "border-subtle-dark": "#2A2A3C",
 
-                // Legacy (para compatibilidade)
-                "accent-peach": "#FFF0E6",
-                "accent-lavender": "#F0EDFF",
+                // Legacy Colors
                 "background-light": "#FAFAFC",
                 "background-dark": "#0D0D12",
 
@@ -49,24 +87,24 @@ export default {
                 "acid-glow": "rgba(0, 242, 254, 0.5)",
                 "acid-dark": "#0099FF", // Deep Blue fallback
             },
-            fontFamily: {
-                "display": ["Plus Jakarta Sans", "sans-serif"],
-                "body": ["Outfit", "sans-serif"],
-                "sora": ["Sora", "sans-serif"],
-                "inter": ["Inter", "sans-serif"],
-            },
             borderRadius: {
+                lg: "var(--radius)",
+                md: "calc(var(--radius) - 2px)",
+                sm: "calc(var(--radius) - 4px)",
                 // 🔷 GEOMETRIA EXTREMA - Sharp Tech
                 "none": "0px",
                 "sharp": "2px",
-                "DEFAULT": "4px",
-                "md": "6px",
-                "lg": "12px",
                 "xl": "16px",
                 "2xl": "24px",
                 "3xl": "32px",
                 "4xl": "48px",
                 "full": "9999px"
+            },
+            fontFamily: {
+                "display": ["Plus Jakarta Sans", "sans-serif"],
+                "body": ["Outfit", "sans-serif"],
+                "sora": ["Sora", "sans-serif"],
+                "inter": ["Inter", "sans-serif"],
             },
             boxShadow: {
                 // Sombras premium com depth
@@ -90,6 +128,8 @@ export default {
                 'shimmer': 'shimmer 2s linear infinite',
                 'reveal': 'reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
                 'bounce-subtle': 'bounceSubtle 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                "accordion-down": "accordion-down 0.2s ease-out",
+                "accordion-up": "accordion-up 0.2s ease-out",
             },
             keyframes: {
                 fadeIn: {
@@ -137,6 +177,14 @@ export default {
                     '50%': { transform: 'scale(1.05)' },
                     '100%': { transform: 'scale(1)' }
                 },
+                "accordion-down": {
+                    from: { height: "0" },
+                    to: { height: "var(--radix-accordion-content-height)" },
+                },
+                "accordion-up": {
+                    from: { height: "var(--radix-accordion-content-height)" },
+                    to: { height: "0" },
+                },
             }
         },
     },
@@ -144,5 +192,6 @@ export default {
         require('@tailwindcss/forms'),
         require('@tailwindcss/typography'),
         require('@tailwindcss/container-queries'),
+        require("tailwindcss-animate"),
     ],
 }

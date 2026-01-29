@@ -2,7 +2,19 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Project, CreativeGoal, TeamMember, Document, ChecklistItem } from '../types';
 import { TEAM_MEMBERS } from '../constants';
 import RichTextEditor from './RichTextEditor';
+import TextEditorModal from './TextEditorModal';
 import { marked } from 'marked';
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { Calendar as CalendarIcon } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 interface GoalDetailsModalProps {
   project: Project;
@@ -17,16 +29,18 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
   onClose,
   onUpdateGoal
 }) => {
-  const [openSections, setOpenSections] = useState<string[]>(['checklist']);
+  const [openSections, setOpenSections] = useState<string[]>(['checklist', 'desc']);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [tempDesc, setTempDesc] = useState(goal.description || '');
   const [newChecklistItem, setNewChecklistItem] = useState('');
-  const [tempDate, setTempDate] = useState(goal.dueDate ? goal.dueDate.split('T')[0] : '');
+  const [date, setDate] = useState<Date | undefined>(goal.dueDate ? new Date(goal.dueDate) : undefined);
   const [copied, setCopied] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(goal.text);
+  const [showTextModal, setShowTextModal] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -58,18 +72,6 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
     }
   };
 
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return 'Definir Prazo';
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime()) || date.getFullYear() <= 1900) return 'Definir Prazo';
-
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
-
   const handleMetadataUpdate = async (updates: Partial<CreativeGoal>) => {
     setIsSaving(true);
     try {
@@ -82,16 +84,11 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
     }
   };
 
-  const confirmDateUpdate = () => {
-    if (tempDate) {
-      // Parse as UTC midnight to avoid timezone shifts
-      // Input format: "YYYY-MM-DD"
-      const [year, month, day] = tempDate.split('-').map(Number);
-      const utcDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-
-      if (!isNaN(utcDate.getTime())) {
-        handleMetadataUpdate({ dueDate: utcDate.toISOString() });
-      }
+  const handleDateSelect = (newDate: Date | undefined) => {
+    setDate(newDate);
+    setIsCalendarOpen(false);
+    if (newDate) {
+      handleMetadataUpdate({ dueDate: newDate.toISOString() });
     } else {
       handleMetadataUpdate({ dueDate: undefined });
     }
@@ -235,8 +232,8 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
                   <div className="flex flex-col">
                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Status Atual</span>
                     <span className={`text-xs font-bold ${goal.status === 'Concluído' ? 'text-emerald-500' :
-                        goal.status === 'Em Andamento' ? 'text-primary' :
-                          goal.status === 'Em Revisão' ? 'text-amber-500' : 'text-slate-500'
+                      goal.status === 'Em Andamento' ? 'text-primary' :
+                        goal.status === 'Em Revisão' ? 'text-amber-500' : 'text-slate-500'
                       }`}>
                       {goal.status}
                     </span>
@@ -261,44 +258,38 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
               )}
             </div>
 
-            {/* Prazo Card */}
-            <div className="relative group">
-              <div
-                onClick={() => {
-                  setEditingField(editingField === 'date' ? null : 'date');
-                  setTempDate(goal.dueDate ? goal.dueDate.split('T')[0] : '');
-                }}
-                className="h-full flex items-center justify-between p-4 bg-slate-50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                    <span className="material-symbols-outlined !text-[18px]">calendar_month</span>
+            {/* Prazo Card with DatePicker */}
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <div className="relative group h-full">
+                <PopoverTrigger asChild>
+                  <div
+                    className="h-full flex items-center justify-between p-4 bg-slate-50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-white dark:hover:bg-gray-800 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 w-full group/date"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 rounded-lg text-primary group-hover/date:scale-110 transition-transform duration-300">
+                        <span className="material-symbols-outlined !text-[18px]">calendar_month</span>
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1 group-hover/date:text-primary transition-colors">Prazo Final</span>
+                        <span className="text-xs font-bold text-slate-700 dark:text-gray-300">
+                          {date ? format(date, "d 'de' MMMM", { locale: ptBR }) : "Definir Prazo"}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="material-symbols-outlined text-gray-300 group-hover/date:text-primary transition-colors">edit_calendar</span>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Prazo Final</span>
-                    <span className="text-xs font-bold text-slate-700 dark:text-gray-300">
-                      {formatDate(goal.dueDate)}
-                    </span>
-                  </div>
-                </div>
-                <span className="material-symbols-outlined text-gray-300">edit_calendar</span>
-              </div>
-
-              {editingField === 'date' && (
-                <div ref={popoverRef} className="absolute top-full left-0 w-full mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 p-4 animate-scale-up space-y-3">
-                  <input
-                    type="date"
-                    className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-lg text-sm font-bold p-3 focus:ring-2 focus:ring-primary/20 text-slate-900 dark:text-white"
-                    value={tempDate}
-                    onChange={(e) => setTempDate(e.target.value)}
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[90] bg-transparent border-none shadow-none" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={handleDateSelect}
+                    initialFocus
+                    className="rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900"
                   />
-                  <div className="flex gap-2">
-                    <button onClick={confirmDateUpdate} className="flex-1 bg-primary text-white py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors">Confirmar</button>
-                    <button onClick={() => setEditingField(null)} className="px-4 py-2 text-slate-400 hover:text-slate-600 text-[10px] font-bold uppercase tracking-widest transition-colors">Cancelar</button>
-                  </div>
-                </div>
-              )}
-            </div>
+                </PopoverContent>
+              </div>
+            </Popover>
           </div>
 
           {/* Collapsible Sections */}
@@ -331,14 +322,17 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setIsEditingDesc(true);
-                        if (!openSections.includes('desc')) toggleSection('desc');
+                        setShowTextModal(true);
                       }}
                       className="text-[10px] font-black text-primary uppercase tracking-[0.15em] hover:underline transition-all"
                     >
                       Editar
                     </button>
                   )}
+
+                  <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-2" />
+
+
                   <span className={`material-symbols-outlined text-gray-400 transition-transform duration-300 ${openSections.includes('desc') ? 'rotate-180' : ''}`}>expand_more</span>
                 </div>
               </div>
@@ -382,8 +376,29 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <div className="text-slate-600 dark:text-gray-400 text-sm leading-relaxed pt-4 pb-4">
-                      <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: marked.parse(goal.description || 'Nenhuma descrição fornecida.', { async: false }) as string }} />
+                    <div className="relative text-slate-600 dark:text-gray-400 text-sm leading-relaxed pt-4 pb-4">
+                      <div
+                        className="prose prose-sm dark:prose-invert max-w-none max-h-[250px] overflow-hidden relative"
+                        dangerouslySetInnerHTML={{ __html: marked.parse(goal.description || 'Nenhuma descrição fornecida.', { async: false }) as string }}
+                      />
+                      {/* Gradient Fade Out with Styled Button */}
+                      {(goal.description?.length || 0) > 200 && (
+                        <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-slate-900 dark:via-slate-900/90 flex items-end justify-center pb-4">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowTextModal(true);
+                            }}
+                            className="group relative flex items-center gap-2 px-6 py-2.5 bg-white dark:bg-slate-800 rounded-full shadow-xl shadow-slate-200/50 dark:shadow-black/50 border border-slate-100 dark:border-slate-700 hover:scale-105 active:scale-95 transition-all duration-300 z-10"
+                          >
+                            <span className="absolute inset-0 rounded-full bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <span className="material-symbols-outlined !text-[18px] text-primary group-hover:rotate-45 transition-transform duration-300">open_in_full</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 dark:text-slate-300 group-hover:text-primary transition-colors">
+                              Ler Tudo
+                            </span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -509,6 +524,16 @@ const GoalDetailsModal: React.FC<GoalDetailsModalProps> = ({
           </p>
         </footer>
       </div>
+
+      <TextEditorModal
+        isOpen={showTextModal}
+        onClose={() => setShowTextModal(false)}
+        title="Editar Descrição do Objetivo"
+        initialContent={goal.description || ''}
+        onSave={async (content) => {
+          await onUpdateGoal({ ...goal, description: content });
+        }}
+      />
     </div>
   );
 };

@@ -185,6 +185,28 @@ export function useProjects(clientId: string | null) {
         }
     }, []);
 
+    const reorderGoals = useCallback(async (projectId: string, goals: { id: string; position: number }[]) => {
+        // Optimistic update
+        setProjects(prev => prev.map(p => {
+            if (p.id === projectId) {
+                const currentGoals = p.creative_goals || [];
+                const updatedGoals = currentGoals.map((g: any) => {
+                    const match = goals.find(u => u.id === g.id);
+                    return match ? { ...g, position: match.position } : g;
+                });
+                return { ...p, creative_goals: updatedGoals };
+            }
+            return p;
+        }));
+
+        // Batch update using Promise.all
+        const updates = goals.map(g =>
+            supabase.from('creative_goals').update({ position: g.position } as any).eq('id', g.id)
+        );
+
+        await Promise.all(updates);
+    }, []);
+
     return useMemo(() => ({
         projects,
         loading,
@@ -196,6 +218,7 @@ export function useProjects(clientId: string | null) {
         addGoal,
         updateGoal,
         deleteGoal,
-        addActivity
-    }), [projects, loading, error, createProject, updateProject, deleteProject, fetchProjects, addGoal, updateGoal, deleteGoal, addActivity]);
+        addActivity,
+        reorderGoals
+    }), [projects, loading, error, createProject, updateProject, deleteProject, fetchProjects, addGoal, updateGoal, deleteGoal, addActivity, reorderGoals]);
 }

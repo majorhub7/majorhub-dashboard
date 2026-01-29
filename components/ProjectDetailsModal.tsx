@@ -1,19 +1,15 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Project, TeamMember, CreativeGoal, ProjectActivity, Document } from '../types';
 import { TEAM_MEMBERS } from '../constants';
 import GoalDetailsModal from './GoalDetailsModal';
 import { useProjectDetails } from '../hooks/useProjectDetails';
 import { useProjectInvites } from '../hooks/useProjectInvites';
-import RichTextEditor from './RichTextEditor';
-import { marked } from 'marked';
 
 // Optimized sub-components
 import ProjectTimeline from './ProjectDetails/Timeline';
 import CreativeGoals from './ProjectDetails/CreativeGoals';
 import AssetsSection from './ProjectDetails/Assets';
 import AIChatPanel from './AIChatPanel';
-import { geminiService } from '../services/gemini';
 
 interface ProjectDetailsModalProps {
   project: Project;
@@ -25,6 +21,7 @@ interface ProjectDetailsModalProps {
   onUpdateGoal?: (goalId: string, updates: any) => Promise<void>;
   onDeleteGoal?: (goalId: string, projectId: string) => Promise<void>;
   onAddActivity?: (projectId: string, activity: any) => Promise<void>;
+  onReorderGoals?: (projectId: string, goals: { id: string; position: number }[]) => Promise<void>;
 }
 
 const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
@@ -36,7 +33,8 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
   onAddGoal,
   onUpdateGoal,
   onDeleteGoal,
-  onAddActivity
+  onAddActivity,
+  onReorderGoals
 }) => {
   const [newGoalText, setNewGoalText] = useState('');
   const [newComment, setNewComment] = useState('');
@@ -51,12 +49,11 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
   const [activeSidePanel, setActiveSidePanel] = useState<'timeline' | 'ai'>('timeline');
   const [showInviteCopied, setShowInviteCopied] = useState(false);
 
-  const [isEditingDesc, setIsEditingDesc] = useState(false);
-  const [isSavingDesc, setIsSavingDesc] = useState(false);
-  const [isAnalyzingBriefing, setIsAnalyzingBriefing] = useState(false);
-  const [tempDesc, setTempDesc] = useState(project.description);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(project.title);
+  const [isEditingDesc, setIsEditingDesc] = useState(false);
+  const [tempDesc, setTempDesc] = useState(project.description || '');
+  const [isSavingDesc, setIsSavingDesc] = useState(false);
 
   // Lazy Load Activities (Performance Logic)
   const { activities: fetchedActivities, loading: activitiesLoading, addLocalActivity } = useProjectDetails(project.id);
@@ -93,9 +90,6 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
         systemIcon
       });
       // Optimistic upate via local hook state
-      // (Actually onAddActivity in useProjects updates the global cache which might not propagate here if we decoupled?)
-      // Wait, useProjectDetails refetches? No, we should manually add locally for instant feedback.
-      // addLocalActivity needs a DbActivity structure.
       addLocalActivity({
         id: Date.now().toString(),
         project_id: project.id,
@@ -118,8 +112,6 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
         timestamp: new Date().toISOString(),
         systemIcon
       };
-      // We don't have a way to update remote here without prop, so update local project prop?
-      // Actually onUpdate updates the parent state.
       onUpdate({
         ...project,
         activities: [...project.activities, activity], // This prop might be stale or empty now.
@@ -160,25 +152,6 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
     setIsEditingTitle(false);
   };
 
-  const handleAnalyzeBriefing = async () => {
-    if (!project.description || isAnalyzingBriefing) return;
-    setIsAnalyzingBriefing(true);
-    try {
-      const suggestion = await geminiService.analyzeBriefing(project.description);
-      if (suggestion) {
-        // Log AI recommendation as a system comment
-        await logActivity('system', `A IA sugeriu melhorias no briefing: ${suggestion}`, 'smart_toy');
-        setShowChatPanel(true);
-        setActiveSidePanel('ai');
-      }
-    } catch (err) {
-      console.error('Erro ao analisar briefing:', err);
-    } finally {
-      setIsAnalyzingBriefing(false);
-    }
-  };
-
-
   const handleUpdateCover = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -195,7 +168,6 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
     onUpdate({ ...project, imageUrl: '' });
     logActivity('system', 'removeu a foto de capa do projeto', 'hide_image');
   };
-
 
   const handleSendComment = () => {
     if (!newComment.trim()) return;
@@ -557,56 +529,45 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
               <section className="animate-fade-in">
                 <div className="flex items-center justify-between mb-8">
                   <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Briefing Criativo</h3>
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={handleAnalyzeBriefing}
-                      disabled={isAnalyzingBriefing}
-                      className="text-[10px] font-bold text-amber-500 uppercase tracking-widest hover:underline transition-all flex items-center gap-1 disabled:opacity-50"
-                    >
-                      {isAnalyzingBriefing ? 'Analisando...' : (
-                        <>
-                          <span className="material-symbols-outlined !text-[14px]">auto_awesome</span>
-                          Analise com IA
-                        </>
-                      )}
+                  {!isEditingDesc ? (
+                    <button onClick={() => { setIsEditingDesc(true); setTempDesc(project.description); }} className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline transition-all">
+                      Editar Conteúdo
                     </button>
-                    {!isEditingDesc ? (
-                      <button onClick={() => { setIsEditingDesc(true); setTempDesc(project.description); }} className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline transition-all">
-                        Editar Conteúdo
+                  ) : (
+                    <div className="flex items-center gap-6">
+                      <button
+                        onClick={handleSaveDescription}
+                        disabled={isSavingDesc}
+                        className="bg-primary/80 hover:bg-primary text-white px-7 py-2.5 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-xl shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {isSavingDesc && <div className="size-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                        {isSavingDesc ? 'Salvando...' : 'Salvar Alterações'}
                       </button>
-                    ) : (
-                      <div className="flex items-center gap-6">
-                        <button
-                          onClick={handleSaveDescription}
-                          disabled={isSavingDesc}
-                          className="bg-primary/80 hover:bg-primary text-white px-7 py-2.5 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-xl shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          {isSavingDesc && <div className="size-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                          {isSavingDesc ? 'Salvando...' : 'Salvar Alterações'}
-                        </button>
-                        <button
-                          onClick={() => setIsEditingDesc(false)}
-                          disabled={isSavingDesc}
-                          className="text-slate-400 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-400 text-[10px] font-bold uppercase tracking-widest transition-colors disabled:opacity-30"
-                        >
-                          Descartar
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                      <button
+                        onClick={() => setIsEditingDesc(false)}
+                        disabled={isSavingDesc}
+                        className="text-slate-400 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-400 text-[10px] font-bold uppercase tracking-widest transition-colors disabled:opacity-30"
+                      >
+                        Descartar
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className={`relative rounded-[2rem] border transition-all duration-300 ${isEditingDesc ? 'border-primary/30 ring-4 ring-primary/5 shadow-2xl bg-white dark:bg-slate-900' : 'border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/40 shadow-sm'}`}>
                   <div className="p-6 md:p-8">
                     {isEditingDesc ? (
-                      <RichTextEditor
+                      <textarea
                         value={tempDesc}
-                        onChange={setTempDesc}
+                        onChange={(e) => setTempDesc(e.target.value)}
                         placeholder="Descreva o briefing detalhado do projeto..."
-                        minHeight="200px"
+                        className="w-full min-h-[200px] bg-transparent border-0 focus:ring-0 p-0 text-slate-600 dark:text-slate-300 placeholder:text-slate-300 dark:placeholder:text-slate-600 resize-none leading-relaxed text-[15px] font-medium"
+                        autoFocus
                       />
                     ) : (
-                      <div className="text-slate-600 dark:text-slate-400 leading-relaxed text-[15px] font-medium prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: marked.parse(project.description || "Nenhuma descrição definida.") as string }} />
+                      <div className="text-slate-600 dark:text-slate-400 leading-relaxed text-[15px] font-medium whitespace-pre-wrap">
+                        {project.description || "Nenhuma descrição definida."}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -624,6 +585,20 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
                 newGoalText={newGoalText}
                 setNewGoalText={setNewGoalText}
                 getResponsible={getResponsible}
+                onReorderGoals={async (newGoals) => {
+                  // Optimistic update local state in modal if needed, but CreativeGoals might handle its own optimistic via sortable.
+                  // However, we rely on parent 'project' prop updating.
+
+                  // Prepare reorder payload
+                  const updates = newGoals.map((g, index) => ({ id: g.id, position: index }));
+
+                  if (onReorderGoals) {
+                    await onReorderGoals(project.id, updates);
+                  } else {
+                    // Local update rollback or simulated
+                    onUpdate({ ...project, creativeGoals: newGoals });
+                  }
+                }}
               />
 
               <AssetsSection
@@ -706,108 +681,96 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
       </div>
 
       {/* Modal de Detalhes do Objetivo Criativo */}
-      {
-        selectedGoal && (
-          <GoalDetailsModal
-            project={project}
-            goal={selectedGoal}
-            onClose={() => setSelectedGoal(null)}
-            onUpdateGoal={updateGoalDetails}
-          />
-        )
-      }
+      {selectedGoal && (
+        <GoalDetailsModal
+          project={project}
+          goal={selectedGoal}
+          onClose={() => setSelectedGoal(null)}
+          onUpdateGoal={updateGoalDetails}
+        />
+      )}
 
       {/* Popup de Aviso para Objetivos Abertos */}
-      {
-        showGoalWarning && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fade-in">
-            <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowGoalWarning(false)} />
-            <div className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-8 md:p-10 max-w-sm w-full shadow-2xl animate-scale-up border border-slate-100 dark:border-slate-800">
-              <div className="size-16 rounded-3xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-500 mb-6 mx-auto">
-                <span className="material-symbols-outlined !text-[32px]">warning</span>
-              </div>
-              <h4 className="text-xl font-black text-slate-900 dark:text-white text-center mb-3">Objetivos Pendentes</h4>
-              <p className="text-slate-500 dark:text-slate-400 text-center text-sm leading-relaxed mb-8">
-                Você não pode concluir este projeto enquanto houver <span className="text-slate-900 dark:text-slate-200 font-bold">objetivos criativos em aberto</span>. Finalize todas as sub-entregas primeiro.
-              </p>
-              <button
-                onClick={() => setShowGoalWarning(false)}
-                className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-[1.02] transition-all active:scale-95"
-              >
-                Entendido
-              </button>
+      {showGoalWarning && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fade-in">
+          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowGoalWarning(false)} />
+          <div className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-8 md:p-10 max-w-sm w-full shadow-2xl animate-scale-up border border-slate-100 dark:border-slate-800">
+            <div className="size-16 rounded-3xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-500 mb-6 mx-auto">
+              <span className="material-symbols-outlined !text-[32px]">warning</span>
             </div>
+            <h4 className="text-xl font-black text-slate-900 dark:text-white text-center mb-3">Objetivos Pendentes</h4>
+            <p className="text-slate-500 dark:text-slate-400 text-center text-sm leading-relaxed mb-8">
+              Você não pode concluir este projeto enquanto houver <span className="text-slate-900 dark:text-slate-200 font-bold">objetivos criativos em aberto</span>. Finalize todas as sub-entregas primeiro.
+            </p>
+            <button
+              onClick={() => setShowGoalWarning(false)}
+              className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-[1.02] transition-all active:scale-95"
+            >
+              Entendido
+            </button>
           </div>
-        )
-      }
+        </div>
+      )}
 
       {/* Modal de Confirmação de Exclusão de Projeto */}
-      {
-        showDeleteConfirm && (
-          <div className="fixed inset-0 z-[130] flex items-center justify-center p-6 animate-fade-in">
-            <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-xl" onClick={() => !isDeletingProject && setShowDeleteConfirm(false)} />
-            <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[3rem] p-10 shadow-2xl border border-rose-100 dark:border-rose-900/30 animate-scale-up">
-              <div className="size-20 rounded-3xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center text-rose-500 mb-8 mx-auto shadow-inner">
-                <span className="material-symbols-outlined !text-[40px]">delete_forever</span>
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-6 animate-fade-in">
+          <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-xl" onClick={() => !isDeletingProject && setShowDeleteConfirm(false)} />
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[3rem] p-10 shadow-2xl border border-rose-100 dark:border-rose-900/30 animate-scale-up">
+            <div className="size-20 rounded-3xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center text-rose-500 mb-8 mx-auto shadow-inner">
+              <span className="material-symbols-outlined !text-[40px]">delete_forever</span>
+            </div>
+
+            <h4 className="text-2xl font-black text-slate-900 dark:text-white text-center mb-4 text-balance">Deseja realmente apagar este projeto?</h4>
+            <p className="text-slate-500 dark:text-slate-400 text-center text-sm leading-relaxed mb-8">
+              Esta ação removerá permanentemente o projeto <span className="text-slate-900 dark:text-white font-black">"{project.title}"</span>, todas as suas sub-entregas, arquivos e histórico.
+            </p>
+
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Confirme digitando o nome do projeto:</label>
+                <input
+                  type="text"
+                  value={confirmName}
+                  onChange={(e) => setConfirmName(e.target.value)}
+                  placeholder={project.title}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white outline-none focus:border-rose-500/50 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                />
               </div>
 
-              <h4 className="text-2xl font-black text-slate-900 dark:text-white text-center mb-4 text-balance">Deseja realmente apagar este projeto?</h4>
-              <p className="text-slate-500 dark:text-slate-400 text-center text-sm leading-relaxed mb-8">
-                Esta ação removerá permanentemente o projeto <span className="text-slate-900 dark:text-white font-black">"{project.title}"</span>, todas as suas sub-entregas, arquivos e histórico.
-              </p>
-
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Confirme digitando o nome do projeto:</label>
-                  <input
-                    type="text"
-                    value={confirmName}
-                    onChange={(e) => setConfirmName(e.target.value)}
-                    placeholder={project.title}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-6 text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-200 transition-all dark:text-white"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <button
-                    onClick={async () => {
-                      if (confirmName !== project.title || !onDelete) return;
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    if (confirmName === project.title) {
+                      onDelete?.(project.id);
                       setIsDeletingProject(true);
-                      try {
-                        await onDelete(project.id);
-                        onClose(); // Fecha o modal de detalhes após a exclusão
-                      } catch (err) {
-                        console.error(err);
-                        alert('Erro ao excluir projeto');
-                      } finally {
-                        setIsDeletingProject(false);
-                      }
-                    }}
-                    disabled={confirmName !== project.title || isDeletingProject}
-                    className={`w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-xl ${confirmName === project.title && !isDeletingProject
-                      ? 'bg-rose-500 text-white shadow-rose-500/20 hover:scale-[1.02] active:scale-95'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 cursor-not-allowed shadow-none'
-                      }`}
-                  >
-                    {isDeletingProject ? 'Excluindo...' : 'Confirmar Exclusão'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowDeleteConfirm(false);
-                      setConfirmName('');
-                    }}
-                    disabled={isDeletingProject}
-                    className="w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all"
-                  >
-                    Voltar
-                  </button>
-                </div>
+                    }
+                  }}
+                  disabled={confirmName !== project.title || isDeletingProject}
+                  className="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-rose-500/20 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  {isDeletingProject ? (
+                    <>
+                      <div className="size-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Apagando...</span>
+                    </>
+                  ) : (
+                    'Confirmar Exclusão'
+                  )}
+                </button>
+                <button
+                  onClick={() => { setShowDeleteConfirm(false); setConfirmName(''); setIsDeletingProject(false); }}
+                  disabled={isDeletingProject}
+                  className="px-6 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 py-4 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
               </div>
             </div>
           </div>
-        )
-      }
-    </div >
+        </div>
+      )}
+    </div>
   );
 };
 
