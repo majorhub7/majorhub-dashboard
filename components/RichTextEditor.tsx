@@ -91,6 +91,7 @@ interface RichTextEditorProps {
     minHeight?: string;
     maxHeight?: string;
     className?: string;
+    variant?: 'default' | 'immersive';
 }
 
 const RichTextEditor: React.FC<RichTextEditorProps> = ({
@@ -99,7 +100,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     placeholder = 'Escreva aqui...',
     minHeight = '120px',
     maxHeight = '400px',
-    className = ''
+    className = '',
+    variant = 'default'
 }) => {
     const [showMarkdown, setShowMarkdown] = useState<boolean>(false);
     const [activeColor, setActiveColor] = useState<string>('#1f2937');
@@ -296,172 +298,228 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     };
 
     return (
-        <div className={`flex flex-col rounded-sm border-0 border-slate-200 bg-[#F9FBFD] h-full overflow-hidden ${className}`}>
-            {/* Toolbar - Google Docs Style */}
-            <div className="bg-[#EDF2FA] border-b border-slate-300 flex items-center justify-between px-4 py-2 shrink-0 rounded-t-[24px] mx-4 mt-4 shadow-sm z-10">
-                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1 flex-1">
-
-                    {/* Undo/Redo */}
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); performAction('undo'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Desfazer">
-                        <span className="material-symbols-outlined !text-[20px]">undo</span>
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); performAction('redo'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Refazer">
-                        <span className="material-symbols-outlined !text-[20px]">redo</span>
-                    </button>
-
-                    <div className="w-px h-5 bg-slate-300 mx-2 shrink-0" />
-
-                    {/* Text Style */}
-                    <div className="flex items-center gap-1 bg-[#F1F5F9] rounded-md p-0.5 mx-2">
-                        <button
-                            type="button"
-                            onMouseDown={(e) => { e.preventDefault(); changeFontSize(-1); }}
-                            className="size-7 flex items-center justify-center hover:bg-white rounded-sm text-slate-600 hover:text-slate-900 transition-all font-medium text-lg active:scale-95 disabled:opacity-30"
-                            disabled={currentFontSize <= 1}
-                            title="Diminuir fonte"
-                        >
-                            −
+        <div className={`flex flex-col relative ${className} ${variant === 'immersive' ? 'bg-[#F9F9F9]' : 'bg-[#F9FBFD] border-0 border-slate-200'} h-full overflow-hidden`}>
+            {/* Toolbar - Conditional Render */}
+            {variant === 'immersive' ? (
+                <div className="flex items-center justify-between px-4 py-3 bg-[#EEF2F6] border-b border-[#E2E8F0] shrink-0 sticky top-0 z-20">
+                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); performAction('undo'); }} className="size-9 flex items-center justify-center hover:bg-white rounded-lg text-slate-500 hover:text-slate-900 transition-all active:scale-95 shrink-0">
+                            <span className="material-symbols-outlined !text-[20px]">undo</span>
                         </button>
-                        <div className="w-8 flex items-center justify-center font-bold text-slate-700 text-sm select-none">
-                            {fontSizesMap[currentFontSize]}
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); performAction('redo'); }} className="size-9 flex items-center justify-center hover:bg-white rounded-lg text-slate-500 hover:text-slate-900 transition-all active:scale-95 shrink-0">
+                            <span className="material-symbols-outlined !text-[20px]">redo</span>
+                        </button>
+                        <div className="w-px h-5 bg-slate-300 mx-2 shrink-0" />
+
+                        <div className="flex items-center bg-white rounded-lg p-0.5 border border-slate-200/50 shadow-sm">
+                            <button
+                                type="button"
+                                onMouseDown={(e) => { e.preventDefault(); changeFontSize(-1); }}
+                                className="size-8 flex items-center justify-center hover:bg-slate-50 rounded-md text-slate-600 transition-all font-medium text-lg active:scale-95 disabled:opacity-30"
+                                disabled={currentFontSize <= 1}
+                            >
+                                −
+                            </button>
+                            <div className="w-8 flex items-center justify-center font-bold text-slate-700 text-sm select-none">
+                                {fontSizesMap[currentFontSize]}
+                            </div>
+                            <button
+                                type="button"
+                                onMouseDown={(e) => { e.preventDefault(); changeFontSize(1); }}
+                                className="size-8 flex items-center justify-center hover:bg-slate-50 rounded-md text-slate-600 transition-all font-medium text-lg active:scale-95 disabled:opacity-30"
+                                disabled={currentFontSize >= 7}
+                            >
+                                +
+                            </button>
                         </div>
+
+                        <div className="w-px h-5 bg-slate-300 mx-2 shrink-0" />
+
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); applyFormat('bold'); }} className="size-9 flex items-center justify-center hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-all active:scale-95 shrink-0 hover:shadow-sm">
+                            <span className="font-bold text-lg">B</span>
+                        </button>
+
                         <button
                             type="button"
-                            onMouseDown={(e) => { e.preventDefault(); changeFontSize(1); }}
-                            className="size-7 flex items-center justify-center hover:bg-white rounded-sm text-slate-600 hover:text-slate-900 transition-all font-medium text-lg active:scale-95 disabled:opacity-30"
-                            disabled={currentFontSize >= 7}
-                            title="Aumentar fonte"
+                            onClick={() => {
+                                lastChangeSourceRef.current = 'external';
+                                setShowMarkdown(!showMarkdown);
+                                setShowColorPicker(false);
+                            }}
+                            className={`size-9 rounded-full flex items-center justify-center transition-all ml-2 ${showMarkdown ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 hover:text-blue-500 hover:shadow-sm'}`}
                         >
-                            +
+                            <span className="material-symbols-outlined !text-[18px]">{showMarkdown ? 'visibility' : 'code'}</span>
                         </button>
                     </div>
+                </div>
+            ) : (
+                <div className="bg-[#EDF2FA] border-b border-slate-300 flex items-center justify-between px-4 py-2 shrink-0 rounded-t-[24px] mx-4 mt-4 shadow-sm z-10">
+                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1 flex-1">
 
-                    <div className="w-px h-5 bg-slate-300 mx-2 shrink-0" />
+                        {/* Undo/Redo */}
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); performAction('undo'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Desfazer">
+                            <span className="material-symbols-outlined !text-[20px]">undo</span>
+                        </button>
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); performAction('redo'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Refazer">
+                            <span className="material-symbols-outlined !text-[20px]">redo</span>
+                        </button>
 
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyFormat('bold'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Negrito">
-                        <span className="font-bold text-lg">B</span>
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyFormat('italic'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Itálico">
-                        <span className="italic text-lg font-serif">I</span>
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyFormat('underline'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Sublinhado">
-                        <span className="underline text-lg">U</span>
-                    </button>
-                    <div className="relative" ref={colorPickerRef}>
+                        <div className="w-px h-5 bg-slate-300 mx-2 shrink-0" />
+
+                        {/* Text Style */}
+                        <div className="flex items-center gap-1 bg-[#F1F5F9] rounded-md p-0.5 mx-2">
+                            <button
+                                type="button"
+                                onMouseDown={(e) => { e.preventDefault(); changeFontSize(-1); }}
+                                className="size-7 flex items-center justify-center hover:bg-white rounded-sm text-slate-600 hover:text-slate-900 transition-all font-medium text-lg active:scale-95 disabled:opacity-30"
+                                disabled={currentFontSize <= 1}
+                                title="Diminuir fonte"
+                            >
+                                −
+                            </button>
+                            <div className="w-8 flex items-center justify-center font-bold text-slate-700 text-sm select-none">
+                                {fontSizesMap[currentFontSize]}
+                            </div>
+                            <button
+                                type="button"
+                                onMouseDown={(e) => { e.preventDefault(); changeFontSize(1); }}
+                                className="size-7 flex items-center justify-center hover:bg-white rounded-sm text-slate-600 hover:text-slate-900 transition-all font-medium text-lg active:scale-95 disabled:opacity-30"
+                                disabled={currentFontSize >= 7}
+                                title="Aumentar fonte"
+                            >
+                                +
+                            </button>
+                        </div>
+
+                        <div className="w-px h-5 bg-slate-300 mx-2 shrink-0" />
+
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); applyFormat('bold'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Negrito">
+                            <span className="font-bold text-lg">B</span>
+                        </button>
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); applyFormat('italic'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Itálico">
+                            <span className="italic text-lg font-serif">I</span>
+                        </button>
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); applyFormat('underline'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Sublinhado">
+                            <span className="underline text-lg">U</span>
+                        </button>
+                        <div className="relative" ref={colorPickerRef}>
+                            <button
+                                type="button"
+                                onMouseDown={(e) => { e.preventDefault(); setShowColorPicker(!showColorPicker); }}
+                                className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 group"
+                                title="Cor do texto"
+                            >
+                                <div className="flex flex-col items-center">
+                                    <span className="font-bold text-sm leading-none">A</span>
+                                    <div className="h-1 w-4 mt-0.5" style={{ backgroundColor: activeColor }}></div>
+                                </div>
+                            </button>
+                            {showColorPicker && (
+                                <div className="absolute top-full left-0 mt-1 p-2 bg-white border border-slate-200 rounded-sm shadow-xl flex gap-1 z-[100] w-36 flex-wrap">
+                                    {availableColors.map((color) => (
+                                        <button
+                                            key={color.hex}
+                                            type="button"
+                                            onMouseDown={(e) => { e.preventDefault(); applyColor(color.hex); }}
+                                            className={`size-6 rounded-full border transition-all hover:scale-110 ${activeColor === color.hex ? 'border-blue-500 ring-1 ring-blue-200' : 'border-slate-200'}`}
+                                            style={{ backgroundColor: color.hex }}
+                                            title={color.name}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="w-px h-5 bg-slate-300 mx-2 shrink-0" />
+
+                        {/* Heads */}
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); applyFormat('formatBlock', 'H1'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Título 1">
+                            <span className="text-xs font-black">H1</span>
+                        </button>
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); applyFormat('formatBlock', 'H2'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Título 2">
+                            <span className="text-xs font-black">H2</span>
+                        </button>
+
+                        <div className="w-px h-5 bg-slate-300 mx-2 shrink-0" />
+
+
+                        {/* Alignments */}
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); applyAlignment('justifyLeft'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Esquerda">
+                            <span className="material-symbols-outlined !text-[20px]">format_align_left</span>
+                        </button>
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); applyAlignment('justifyCenter'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Centro">
+                            <span className="material-symbols-outlined !text-[20px]">format_align_center</span>
+                        </button>
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); applyAlignment('justifyRight'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Direita">
+                            <span className="material-symbols-outlined !text-[20px]">format_align_right</span>
+                        </button>
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); applyAlignment('justifyFull'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Justificado">
+                            <span className="material-symbols-outlined !text-[20px]">format_align_justify</span>
+                        </button>
+
+                        <div className="w-px h-5 bg-slate-300 mx-2 shrink-0" />
+
+                        {/* Lists & Links */}
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); applyListFormat(false); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Lista">
+                            <span className="material-symbols-outlined !text-[20px]">format_list_bulleted</span>
+                        </button>
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); applyListFormat(true); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Lista Numérica">
+                            <span className="material-symbols-outlined !text-[20px]">format_list_numbered</span>
+                        </button>
+                        <button type="button" onMouseDown={(e) => { e.preventDefault(); applyLink(); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Link">
+                            <span className="material-symbols-outlined !text-[20px]">link</span>
+                        </button>
+
+                    </div>
+
+                    <div className="flex items-center gap-3 ml-3 shrink-0">
                         <button
                             type="button"
-                            onMouseDown={(e) => { e.preventDefault(); setShowColorPicker(!showColorPicker); }}
-                            className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 group"
-                            title="Cor do texto"
+                            onClick={() => {
+                                lastChangeSourceRef.current = 'external';
+                                setShowMarkdown(!showMarkdown);
+                                setShowColorPicker(false);
+                            }}
+                            className={`h-8 px-3 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2 border ${showMarkdown ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-200 hover:text-blue-600'}`}
                         >
-                            <div className="flex flex-col items-center">
-                                <span className="font-bold text-sm leading-none">A</span>
-                                <div className="h-1 w-4 mt-0.5" style={{ backgroundColor: activeColor }}></div>
-                            </div>
+                            <span className="material-symbols-outlined !text-[16px]">{showMarkdown ? 'visibility' : 'code'}</span>
                         </button>
-                        {showColorPicker && (
-                            <div className="absolute top-full left-0 mt-1 p-2 bg-white border border-slate-200 rounded-sm shadow-xl flex gap-1 z-[100] w-36 flex-wrap">
-                                {availableColors.map((color) => (
-                                    <button
-                                        key={color.hex}
-                                        type="button"
-                                        onMouseDown={(e) => { e.preventDefault(); applyColor(color.hex); }}
-                                        className={`size-6 rounded-full border transition-all hover:scale-110 ${activeColor === color.hex ? 'border-blue-500 ring-1 ring-blue-200' : 'border-slate-200'}`}
-                                        style={{ backgroundColor: color.hex }}
-                                        title={color.name}
-                                    />
-                                ))}
-                            </div>
-                        )}
                     </div>
-
-                    <div className="w-px h-5 bg-slate-300 mx-2 shrink-0" />
-
-                    {/* Heads */}
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyFormat('formatBlock', 'H1'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Título 1">
-                        <span className="text-xs font-black">H1</span>
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyFormat('formatBlock', 'H2'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Título 2">
-                        <span className="text-xs font-black">H2</span>
-                    </button>
-
-                    <div className="w-px h-5 bg-slate-300 mx-2 shrink-0" />
-
-
-                    {/* Alignments */}
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyAlignment('justifyLeft'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Esquerda">
-                        <span className="material-symbols-outlined !text-[20px]">format_align_left</span>
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyAlignment('justifyCenter'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Centro">
-                        <span className="material-symbols-outlined !text-[20px]">format_align_center</span>
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyAlignment('justifyRight'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Direita">
-                        <span className="material-symbols-outlined !text-[20px]">format_align_right</span>
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyAlignment('justifyFull'); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Justificado">
-                        <span className="material-symbols-outlined !text-[20px]">format_align_justify</span>
-                    </button>
-
-                    <div className="w-px h-5 bg-slate-300 mx-2 shrink-0" />
-
-                    {/* Lists & Links */}
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyListFormat(false); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Lista">
-                        <span className="material-symbols-outlined !text-[20px]">format_list_bulleted</span>
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyListFormat(true); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Lista Numérica">
-                        <span className="material-symbols-outlined !text-[20px]">format_list_numbered</span>
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyLink(); }} className="size-8 flex items-center justify-center hover:bg-[#D3E3FD] rounded-sm text-slate-700 hover:text-slate-900 transition-all active:scale-95 shrink-0" title="Link">
-                        <span className="material-symbols-outlined !text-[20px]">link</span>
-                    </button>
-
                 </div>
-
-                <div className="flex items-center gap-3 ml-3 shrink-0">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            lastChangeSourceRef.current = 'external';
-                            setShowMarkdown(!showMarkdown);
-                            setShowColorPicker(false);
-                        }}
-                        className={`h-8 px-3 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2 border ${showMarkdown ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-200 hover:text-blue-600'}`}
-                    >
-                        <span className="material-symbols-outlined !text-[16px]">{showMarkdown ? 'visibility' : 'code'}</span>
-                    </button>
-                </div>
-            </div>
+            )}
 
             {/* Workspace Area: Sidebar + Page */}
             <div className="flex flex-1 overflow-hidden relative">
 
-                {/* Left Sidebar - Structure */}
-                <div className="w-64 hidden md:flex flex-col border-r border-slate-200/60 bg-white/50 backdrop-blur-sm pt-6 px-4 pb-4 overflow-y-auto">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-sm">toc</span>
-                        Estrutura
-                    </h3>
-                    {headings.length === 0 ? (
-                        <p className="text-xs text-slate-400 italic">Adicione títulos (H1, H2, H3) para ver a estrutura.</p>
-                    ) : (
-                        <div className="flex flex-col gap-1">
-                            {headings.map((heading, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => scrollToHeading(heading.id)}
-                                    className={`text-left text-sm text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-sm py-1.5 px-2 transition-colors truncate ${heading.level === 1 ? 'font-bold' : heading.level === 2 ? 'pl-4' : 'pl-8 text-xs'}`}
-                                >
-                                    {heading.text}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                {/* Left Sidebar - Structure - Only in default */}
+                {variant !== 'immersive' && (
+                    <div className="w-64 hidden md:flex flex-col border-r border-slate-200/60 bg-white/50 backdrop-blur-sm pt-6 px-4 pb-4 overflow-y-auto">
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-sm">toc</span>
+                            Estrutura
+                        </h3>
+                        {headings.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic">Adicione títulos (H1, H2, H3) para ver a estrutura.</p>
+                        ) : (
+                            <div className="flex flex-col gap-1">
+                                {headings.map((heading, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => scrollToHeading(heading.id)}
+                                        className={`text-left text-sm text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-sm py-1.5 px-2 transition-colors truncate ${heading.level === 1 ? 'font-bold' : heading.level === 2 ? 'pl-4' : 'pl-8 text-xs'}`}
+                                    >
+                                        {heading.text}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Center - Page Canvas */}
-                <div className="flex-1 overflow-y-auto bg-[#F9FBFD] p-8 flex justify-center custom-scrollbar" id="editor-canvas">
+                <div className={`flex-1 overflow-y-auto p-0 flex justify-center custom-scrollbar ${variant === 'immersive' ? 'bg-[#F9F9F9]' : 'bg-[#F9FBFD] p-8'}`} id="editor-canvas">
                     {showMarkdown ? (
-                        <div className="w-full max-w-[850px] bg-white shadow-sm border border-slate-200 min-h-[1100px] p-12">
+                        <div className={`w-full bg-white shadow-sm border border-slate-200 min-h-[1100px] p-12 ${variant === 'immersive' ? 'max-w-none min-h-full border-0 shadow-none' : 'max-w-[850px]'}`}>
                             <textarea
                                 ref={textareaRef}
                                 value={value}
@@ -471,15 +529,15 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                                 }}
                                 placeholder={placeholder}
                                 className="w-full h-full text-sm leading-relaxed font-mono focus:outline-none resize-none bg-transparent text-slate-800 placeholder:text-slate-300"
-                                style={{ minHeight: '1000px' }}
+                                style={{ minHeight: variant === 'immersive' ? '100%' : '1000px' }}
                                 spellCheck={false}
                             />
                         </div>
                     ) : (
-                        <div className="w-full max-w-[850px] mb-20">
+                        <div className={`w-full ${variant === 'immersive' ? 'max-w-none h-full' : 'max-w-[850px] mb-20'}`}>
                             {/* Page Representation */}
                             <div
-                                className="bg-white shadow-md border border-slate-200 min-h-[1100px] p-[96px] outline-none"
+                                className={`bg-white outline-none ${variant === 'immersive' ? 'min-h-full p-8 sm:p-12 shadow-none border-x border-dashed border-slate-200' : 'shadow-md border border-slate-200 min-h-[1100px] p-[96px]'}`}
                                 onClick={() => richEditorRef.current?.focus()}
                             >
                                 <div
@@ -496,11 +554,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                     )}
                 </div>
 
-                {/* Right Sidebar - Spacing / Tools (Future) */}
-                <div className="w-64 hidden xl:block border-l border-slate-200/60 bg-white/50 backdrop-blur-sm p-4">
-                    {/* Placeholder for comments or additional tools */}
-                </div>
-
+                {/* Right Sidebar - Spacing / Tools (Future) - Only in default */}
+                {variant !== 'immersive' && (
+                    <div className="w-64 hidden xl:block border-l border-slate-200/60 bg-white/50 backdrop-blur-sm p-4">
+                        {/* Placeholder for comments or additional tools */}
+                    </div>
+                )}
             </div>
 
             <style>{`
