@@ -18,7 +18,7 @@ export function useMessages(currentUser: User | null) {
         if (currentUser.accessLevel === 'MANAGER') {
             const query = (supabase as any)
                 .from('users')
-                .select('*');
+                .select('id, name, avatar_url, client_id');
 
             if (currentUser.clientId) {
                 query.eq('client_id', currentUser.clientId);
@@ -52,10 +52,10 @@ export function useMessages(currentUser: User | null) {
             const { data, error: convError } = await ((supabase as any)
                 .from('conversations')
                 .select(`
-                    *,
+                    id, name, type, avatar, last_message_at,
                     conversation_participants(
                         user_id,
-                        users(*)
+                        users(id, name, avatar_url)
                     )
                 `)
                 .in('id', convIds)
@@ -154,14 +154,20 @@ export function useMessages(currentUser: User | null) {
             .from('messages')
             .select('*, users:sender_id(name, avatar_url)')
             .eq('conversation_id', conversationId)
-            .order('created_at', { ascending: true }));
+            .order('created_at', { ascending: false })
+            .limit(50));
+
+        // Revert order for UI (since we want oldest first at top, but we fetched newest first)
+        // Note: The original code ordered by ascending, which means it fetched the OLDEST messages first. 
+        // If we limit 50 with ascending, we get the first 50 messages ever sent. We want the LAST 50.
+        // So we change fetch order to descending, limit 50, then reverse the array.
 
         if (error) {
             console.error('Error fetching messages:', error);
             return;
         }
 
-        const mappedMessages: Message[] = (data as any[] || []).map(m => {
+        const mappedMessages: Message[] = (data as any[] || []).reverse().map(m => {
             const senderName = m.sender_id === currentUser?.id ? 'Você' : (m.users?.name || 'Membro');
             const senderAvatar = m.users?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(senderName)}&background=8b5cf6&color=fff&size=150`;
 

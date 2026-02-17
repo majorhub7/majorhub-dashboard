@@ -49,8 +49,7 @@ export function useClients(userId?: string | null) {
             .from('clients')
             .insert({
                 name,
-                logo_url: logoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8b5cf6&color=fff&size=150`,
-                created_by: userId
+                logo_url: logoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8b5cf6&color=fff&size=150`
             } as any)
             .select()
             .single();

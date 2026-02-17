@@ -147,6 +147,29 @@ export interface InspirationItem {
   imageUrl: string;
 }
 
+export interface InspirationTag {
+  id: string;
+  name: string;
+  color: string;
+  isSystem: boolean;
+  userId?: string;
+}
+
+export interface Inspiration {
+  id: string;
+  userId: string;
+  instagramUrl: string;
+  embedHtml?: string;
+  thumbnailUrl?: string;
+  likes: number;
+  views: number;
+  notes?: string;
+  tags: InspirationTag[];
+  projectIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ============================================
 // NOTIFICATION TYPES
 // ============================================

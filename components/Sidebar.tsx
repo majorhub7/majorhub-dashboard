@@ -26,6 +26,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'space_dashboard' },
     { id: 'projetos', label: 'Meus Projetos', icon: 'auto_awesome_motion' },
+    { id: 'inspiracao', label: 'Inspiração', icon: 'lightbulb' },
     { id: 'biblioteca', label: 'Biblioteca', icon: 'collections' },
     { id: 'mensagens', label: 'Mensagens', icon: 'forum' },
   ];

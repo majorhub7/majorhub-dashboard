@@ -23,6 +23,7 @@ import ConfiguracoesView from './components/ConfiguracoesView';
 import OnboardingView from './components/OnboardingView';
 import RegistrationView from './components/RegistrationView';
 import SharedGoalView from './components/SharedGoalView';
+import InspiracaoView from './components/InspiracaoView';
 
 import {
     INITIAL_INSPIRATION,
@@ -624,6 +625,12 @@ const App: React.FC = () => {
                             )}
 
                             {activeTab === 'biblioteca' && <BibliotecaView projects={filteredProjects} />}
+                            {activeTab === 'inspiracao' && currentUser && (
+                                <InspiracaoView
+                                    userId={currentUser.id}
+                                    projects={filteredProjects}
+                                />
+                            )}
                             {activeTab === 'perfil' && currentUser && (
                                 <PerfilView
                                     user={currentUser}

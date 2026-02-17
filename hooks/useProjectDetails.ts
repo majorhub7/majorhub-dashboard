@@ -19,7 +19,13 @@ export function useProjectDetails(projectId: string | null) {
                 .from('project_activities')
                 .select('*')
                 .eq('project_id', projectId)
-                .order('timestamp', { ascending: true });
+                .order('timestamp', { ascending: false })
+                .limit(50);
+
+            // Revert to ascending for UI consistency (Oldest -> Newest)
+            if (activitiesData) {
+                activitiesData.reverse();
+            }
 
             if (actError) {
                 console.error('Error fetching project activities:', actError);
